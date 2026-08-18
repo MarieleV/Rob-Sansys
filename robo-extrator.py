@@ -7,14 +7,14 @@ from tkinter import ttk, messagebox
 import schedule
 from playwright.sync_api import sync_playwright
 
-# Arquivo onde os dados de login e horários serão salvos
+# Arquivo onde os dados de login e configurações serão salvos
 ARQUIVO_CONFIG = "config.json"
 
 class AppAutomacao:
     def __init__(self, root):
         self.root = root
         self.root.title("Robô de Extração - Águas de Joinville")
-        self.root.geometry("400x500") 
+        self.root.geometry("420x580") 
         self.root.resizable(False, False)
         
         # Variáveis da Interface
@@ -23,6 +23,11 @@ class AppAutomacao:
         self.horario1_var = tk.StringVar(value="08:00")
         self.horario2_var = tk.StringVar(value="")
         self.horario3_var = tk.StringVar(value="")
+        
+        # Novas variáveis para os Checkboxes (Marcados por padrão)
+        self.relatorio_075_var = tk.BooleanVar(value=True)
+        self.relatorio_786_var = tk.BooleanVar(value=True)
+        
         self.status_var = tk.StringVar(value="Status: Aguardando comando...")
         
         self.criar_interface()
@@ -65,14 +70,24 @@ class AppAutomacao:
         self.lbl_usuario_salvo.pack(side=tk.LEFT, padx=10)
         ttk.Button(self.frame_login_minimizado, text="Editar Credenciais", command=self.expandir_login).pack(side=tk.LEFT)
 
-        # ==========================================
-        # 2. SEPARADOR E AÇÃO MANUAL
-        # ==========================================
-        ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=5)
 
-        ttk.Button(self.main_frame, text="▶ Extrair Agora", command=self.iniciar_extracao_agora, width=35).pack(pady=5)
+        # ==========================================
+        # 2. SELEÇÃO DE RELATÓRIOS E AÇÃO MANUAL
+        # ==========================================
+        frame_relatorios = ttk.Frame(self.main_frame)
+        frame_relatorios.pack(pady=5)
+        
+        ttk.Label(frame_relatorios, text="Selecione os relatórios para baixar:").pack(pady=5)
+        
+        frame_checks = ttk.Frame(frame_relatorios)
+        frame_checks.pack()
+        ttk.Checkbutton(frame_checks, text="Relatório 075", variable=self.relatorio_075_var).pack(side=tk.LEFT, padx=10)
+        ttk.Checkbutton(frame_checks, text="Relatório 786", variable=self.relatorio_786_var).pack(side=tk.LEFT, padx=10)
 
-        ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Button(self.main_frame, text="▶ Extrair Agora", command=self.iniciar_extracao_agora, width=35).pack(pady=10)
+
+        ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=5)
 
         # ==========================================
         # 3. SEÇÃO DE AGENDAMENTO (3 Horários)
@@ -127,6 +142,10 @@ class AppAutomacao:
                     self.horario2_var.set(dados.get("horario2", ""))
                     self.horario3_var.set(dados.get("horario3", ""))
                     
+                    # Carrega as preferências dos relatórios (padrão é True se não existir)
+                    self.relatorio_075_var.set(dados.get("relatorio_075", True))
+                    self.relatorio_786_var.set(dados.get("relatorio_786", True))
+                    
                     if user and pwd:
                         self.minimizar_login()
             except Exception as e:
@@ -140,18 +159,19 @@ class AppAutomacao:
             messagebox.showwarning("Atenção", "Preencha usuário e senha para salvar.")
             return
 
-        # Salva também os horários atuais para não perder
         dados = {
             "usuario": usuario,
             "senha": senha,
             "horario1": self.horario1_var.get().strip(),
             "horario2": self.horario2_var.get().strip(),
-            "horario3": self.horario3_var.get().strip()
+            "horario3": self.horario3_var.get().strip(),
+            "relatorio_075": self.relatorio_075_var.get(),
+            "relatorio_786": self.relatorio_786_var.get()
         }
         with open(ARQUIVO_CONFIG, "w") as f:
             json.dump(dados, f)
             
-        messagebox.showinfo("Sucesso", "Credenciais salvas com sucesso!")
+        messagebox.showinfo("Sucesso", "Credenciais e preferências salvas com sucesso!")
         self.minimizar_login()
 
     def salvar_horarios_silencioso(self):
@@ -164,6 +184,8 @@ class AppAutomacao:
         dados["horario1"] = self.horario1_var.get().strip()
         dados["horario2"] = self.horario2_var.get().strip()
         dados["horario3"] = self.horario3_var.get().strip()
+        dados["relatorio_075"] = self.relatorio_075_var.get()
+        dados["relatorio_786"] = self.relatorio_786_var.get()
         
         with open(ARQUIVO_CONFIG, "w") as f:
             json.dump(dados, f)
@@ -189,6 +211,11 @@ class AppAutomacao:
             messagebox.showwarning("Aviso", "Preencha pelo menos um horário para agendar.")
             return
 
+        # Valida se pelo menos um relatório está marcado antes de agendar
+        if not self.relatorio_075_var.get() and not self.relatorio_786_var.get():
+            messagebox.showwarning("Aviso", "Marque pelo menos um relatório (075 ou 786) para poder agendar.")
+            return
+
         try:
             schedule.clear()
             for h in horarios_validos:
@@ -211,10 +238,23 @@ class AppAutomacao:
             self.expandir_login()
             return
 
-        self.status_var.set("Status: Extraindo relatório... Aguarde.")
-        threading.Thread(target=self.automacao_playwright, args=(usuario, senha), daemon=True).start()
+        # Verifica quais relatórios foram selecionados na interface
+        relatorios_selecionados = []
+        if self.relatorio_075_var.get():
+            relatorios_selecionados.append("075")
+        if self.relatorio_786_var.get():
+            relatorios_selecionados.append("786")
+            
+        if not relatorios_selecionados:
+            messagebox.showwarning("Atenção", "Selecione pelo menos um relatório (075 ou 786) para baixar.")
+            return
 
-    def automacao_playwright(self, usuario, senha):
+        self.status_var.set("Status: Iniciando extrações... Aguarde.")
+        
+        # Passamos a lista de selecionados para a função do robô
+        threading.Thread(target=self.automacao_playwright, args=(usuario, senha, relatorios_selecionados), daemon=True).start()
+
+    def automacao_playwright(self, usuario, senha, lista_relatorios):
         try:
             with sync_playwright() as playwright:
                 # Troque headless=False para headless=True depois de validar!
@@ -222,6 +262,7 @@ class AppAutomacao:
                 context = browser.new_context()
                 page = context.new_page()
                 
+                # LOGIN INICIAL
                 page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
                 
                 page.get_by_placeholder("Usuário").click(force=True)
@@ -235,50 +276,97 @@ class AppAutomacao:
                 page.keyboard.press("Enter") 
                 page.wait_for_timeout(5000)
                 
-                page.locator("i.material-icons", has_text="menu").click()
-                page.wait_for_timeout(3000)
-
-                page.get_by_text("Gerencial", exact=True).click()
-                page.get_by_text("Relatório Customizado", exact=True).click()
-                page.get_by_text("Processar Relatório Fonte de Dado", exact=True).click()
-                page.wait_for_timeout(3000)
-
-                page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_header"]').click()
-                page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_cell"]').get_by_text("075", exact=True).first.click()
-                page.locator('button[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.icAbrir"]').first.click()
-                page.wait_for_timeout(3000)
-                
-                page.locator("img.x-form-date-trigger:visible").first.click()
-                page.wait_for_timeout(500) 
-                page.locator("button:visible", has_text="Hoje").first.click()
-                
-                page.get_by_role("textbox", name="Grupo Faturamento (Informe 0").fill("0", force=True)
-                page.wait_for_timeout(3000)
-                
-                page.get_by_text("Executar", exact=True).click()
-
-                botao_download = page.locator('button[cfgname="acompanharExecucaoRelatorioFonteDado.acompanhar.btDownload"]')
-                botao_download.wait_for(state="visible", timeout=1200000)
-                
-                with page.expect_download(timeout=60000) as download_info:
-                    botao_download.click()
-                    
-                download = download_info.value
-                
                 pasta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
-                nome_renomeado = "Relatorio_Fonte_Dado_075.zip" 
-                caminho_final = os.path.join(pasta_destino, nome_renomeado)
-                
-                if os.path.exists(caminho_final):
-                    os.remove(caminho_final)
+                arquivos_baixados = []
 
-                download.save_as(caminho_final)
-                
+                # O ROBÔ VAI REPETIR TUDO ABAIXO APENAS PARA OS CÓDIGOS SELECIONADOS
+                for codigo in lista_relatorios:
+                    # Atualiza o status na tela
+                    self.root.after(0, lambda c=codigo: self.status_var.set(f"Status: Extraindo relatório {c}..."))
+                    
+                    page.locator("i.material-icons", has_text="menu").click()
+                    page.wait_for_timeout(3000)
+
+                    page.get_by_text("Gerencial", exact=True).click()
+                    page.get_by_text("Relatório Customizado", exact=True).click()
+                    page.get_by_text("Processar Relatório Fonte de Dado", exact=True).click()
+                    page.wait_for_timeout(3000)
+
+                    page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_header"]').click()
+                    
+                    page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_cell"]').get_by_text(codigo, exact=True).first.click()
+                    page.locator('button[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.icAbrir"]').first.click()
+                    page.wait_for_timeout(4000)
+                    
+                    # ========================================================
+                    # LÓGICA CONDICIONAL DOS FILTROS
+                    # ========================================================
+                    if codigo == "075":
+                        # Filtros do 075
+                        page.locator("img.x-form-date-trigger:visible").first.click()
+                        page.wait_for_timeout(500) 
+                        page.locator("button:visible", has_text="Hoje").first.click()
+                        
+                        page.get_by_role("textbox", name="Grupo Faturamento (Informe 0").fill("0", force=True)
+                        page.wait_for_timeout(3000)
+                        
+                    elif codigo == "786":
+                        # Filtros do 786
+                        campo_data_inicial = page.get_by_role("textbox").nth(0)
+                        campo_data_inicial.click(force=True)
+                        page.wait_for_timeout(500)
+                        
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
+                        page.wait_for_timeout(200)
+                        
+                        campo_data_inicial.press_sequentially("01012024", delay=100) 
+                        page.wait_for_timeout(1000)
+                        
+                        page.keyboard.press("Tab")
+                        page.wait_for_timeout(500)
+
+                        page.locator("img.x-form-date-trigger:visible").nth(1).click()
+                        page.wait_for_timeout(500)
+                        page.locator("button:visible", has_text="Hoje").first.click()
+                        page.wait_for_timeout(2000)
+                    # ========================================================
+                    
+                    page.get_by_text("Executar", exact=True).click()
+
+                    botao_download = page.locator('button[cfgname="acompanharExecucaoRelatorioFonteDado.acompanhar.btDownload"]')
+                    botao_download.wait_for(state="visible", timeout=1200000)
+                    
+                    with page.expect_download(timeout=60000) as download_info:
+                        botao_download.click()
+                        
+                    download = download_info.value
+                    
+                    # Nomeia o arquivo
+                    nome_renomeado = f"Relatorio_Fonte_Dado_{codigo}.zip" 
+                    caminho_final = os.path.join(pasta_destino, nome_renomeado)
+                    
+                    if os.path.exists(caminho_final):
+                        os.remove(caminho_final)
+
+                    download.save_as(caminho_final)
+                    arquivos_baixados.append(nome_renomeado)
+                    
+                    # Se houver mais relatórios na fila, ele recarrega a página para limpar a tela
+                    if len(lista_relatorios) > 1 and codigo != lista_relatorios[-1]:
+                        page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
+                        page.wait_for_timeout(5000)
+
+                # ========================================================
+                # FINALIZAÇÃO
+                # ========================================================
                 context.close()
                 browser.close()
                 
-                self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Arquivo salvo em Downloads."))
-                self.root.after(0, lambda: messagebox.showinfo("Sucesso", f"Arquivo salvo com sucesso em:\n{caminho_final}"))
+                msg_final = "Arquivos salvos em Downloads:\n" + "\n".join(arquivos_baixados)
+                
+                self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
+                self.root.after(0, lambda: messagebox.showinfo("Sucesso", msg_final))
                 
         except Exception as e:
             erro_msg = str(e)
