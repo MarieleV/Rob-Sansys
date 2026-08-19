@@ -143,7 +143,6 @@ class AppAutomacao:
                     self.horario2_var.set(dados.get("horario2", ""))
                     self.horario3_var.set(dados.get("horario3", ""))
                     
-                    # Carrega as preferências dos relatórios (padrão é True se não existir)
                     self.relatorio_075_var.set(dados.get("relatorio_075", True))
                     self.relatorio_786_var.set(dados.get("relatorio_786", True))
                     
@@ -212,7 +211,6 @@ class AppAutomacao:
             messagebox.showwarning("Aviso", "Preencha pelo menos um horário para agendar.")
             return
 
-        # Valida se pelo menos um relatório está marcado antes de agendar
         if not self.relatorio_075_var.get() and not self.relatorio_786_var.get():
             messagebox.showwarning("Aviso", "Marque pelo menos um relatório (075 ou 786) para poder agendar.")
             return
@@ -239,7 +237,6 @@ class AppAutomacao:
             self.expandir_login()
             return
 
-        # Verifica quais relatórios foram selecionados na interface
         relatorios_selecionados = []
         if self.relatorio_075_var.get():
             relatorios_selecionados.append("075")
@@ -251,59 +248,57 @@ class AppAutomacao:
             return
 
         self.status_var.set("Status: Iniciando extrações... Aguarde.")
-        
-        # Passamos a lista de selecionados para a função do robô
         threading.Thread(target=self.automacao_playwright, args=(usuario, senha, relatorios_selecionados), daemon=True).start()
 
     def automacao_playwright(self, usuario, senha, lista_relatorios):
         try:
             with sync_playwright() as playwright:
-                # Troque headless=False para headless=True depois de validar!
                 browser = playwright.chromium.launch(headless=False) 
-                context = browser.new_context()
-                page = context.new_page()
-                
-                # LOGIN INICIAL
-                page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
-                
-                page.get_by_placeholder("Usuário").click(force=True)
-                page.get_by_placeholder("Usuário").fill(usuario, force=True)
-                page.get_by_placeholder("Usuário").press("Tab")
-                
-                page.get_by_placeholder("Senha").fill(senha, force=True)
-                page.get_by_placeholder("Senha").press("Enter") 
-                
-                page.wait_for_timeout(2000)
-                page.keyboard.press("Enter") 
-                page.wait_for_timeout(5000)
                 
                 pasta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
                 arquivos_baixados = []
 
-                # O ROBÔ VAI REPETIR TUDO ABAIXO APENAS PARA OS CÓDIGOS SELECIONADOS
+                # O ROBÔ VAI REPETIR TUDO ABAIXO PARA CADA RELATÓRIO
+                # A mágica aqui: Ele abre uma aba limpa e loga de novo para CADA relatório. Assim nunca trava!
                 for codigo in lista_relatorios:
-                    # Atualiza o status na tela
+                    self.root.after(0, lambda c=codigo: self.status_var.set(f"Status: Acessando sistema para o relatório {c}..."))
+                    
+                    # Cria uma nova "sessão" virgem
+                    context = browser.new_context()
+                    page = context.new_page()
+                    
+                    # FAZ O LOGIN DO ZERO
+                    page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
+                    
+                    page.get_by_placeholder("Usuário").click(force=True)
+                    page.get_by_placeholder("Usuário").fill(usuario, force=True)
+                    page.get_by_placeholder("Usuário").press("Tab")
+                    
+                    page.get_by_placeholder("Senha").fill(senha, force=True)
+                    page.get_by_placeholder("Senha").press("Enter") 
+                    
+                    page.wait_for_timeout(2000)
+                    page.keyboard.press("Enter") 
+                    page.wait_for_timeout(5000)
+
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Status: Extraindo relatório {c}..."))
                     
+                    # Como acabou de logar, a tela tá limpa, então ele SEMPRE vai no menu sem erro
                     page.locator("i.material-icons", has_text="menu").click()
                     page.wait_for_timeout(3000)
 
                     page.get_by_text("Gerencial", exact=True).click()
                     page.get_by_text("Relatório Customizado", exact=True).click()
-                    page.get_by_text("Processar Relatório Fonte de Dado", exact=True).click()
-                    page.wait_for_timeout(3000)
+                    page.locator("a").filter(has_text="Processar Relatório Fonte de Dado").first.click()
+                    page.wait_for_timeout(4000)
 
                     page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_header"]').click()
-                    
                     page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_cell"]').get_by_text(codigo, exact=True).first.click()
                     page.locator('button[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.icAbrir"]').first.click()
                     page.wait_for_timeout(4000)
                     
-                    # ========================================================
-                    # LÓGICA CONDICIONAL DOS FILTROS
-                    # ========================================================
+                    # PREENCHIMENTO DOS FILTROS
                     if codigo == "075":
-                        # Filtros do 075
                         page.locator("img.x-form-date-trigger:visible").first.click()
                         page.wait_for_timeout(500) 
                         page.locator("button:visible", has_text="Hoje").first.click()
@@ -312,7 +307,6 @@ class AppAutomacao:
                         page.wait_for_timeout(3000)
                         
                     elif codigo == "786":
-                        # Filtros do 786
                         campo_data_inicial = page.get_by_role("textbox").nth(0)
                         campo_data_inicial.click(force=True)
                         page.wait_for_timeout(500)
@@ -321,7 +315,7 @@ class AppAutomacao:
                         page.keyboard.press("Backspace")
                         page.wait_for_timeout(200)
                         
-                        campo_data_inicial.press_sequentially("01012024", delay=100) 
+                        campo_data_inicial.press_sequentially("19082026", delay=100) # mudar a data para 01012024
                         page.wait_for_timeout(1000)
                         
                         page.keyboard.press("Tab")
@@ -331,7 +325,6 @@ class AppAutomacao:
                         page.wait_for_timeout(500)
                         page.locator("button:visible", has_text="Hoje").first.click()
                         page.wait_for_timeout(2000)
-                    # ========================================================
                     
                     page.get_by_text("Executar", exact=True).click()
 
@@ -343,28 +336,58 @@ class AppAutomacao:
                         
                     download = download_info.value
                     
-                    # Nomeia o arquivo
-                    nome_renomeado = f"Relatorio_Fonte_Dado_{codigo}.zip" 
-                    caminho_final = os.path.join(pasta_destino, nome_renomeado)
+                    # ========================================================
+                    # LÓGICA DE PASTAS E DESEMPACOTAMENTO PADRONIZADO
+                    # ========================================================
+                    pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{codigo}")
+                    os.makedirs(pasta_relatorio, exist_ok=True)
                     
-                    if os.path.exists(caminho_final):
-                        os.remove(caminho_final)
-
-                    download.save_as(caminho_final)
-                    arquivos_baixados.append(nome_renomeado)
+                    nome_zip = f"Download_Relatorio_{codigo}.zip"
+                    caminho_zip = os.path.join(pasta_relatorio, nome_zip)
                     
-                    # Se houver mais relatórios na fila, ele recarrega a página para limpar a tela
-                    if len(lista_relatorios) > 1 and codigo != lista_relatorios[-1]:
-                        page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
-                        page.wait_for_timeout(5000)
+                    if os.path.exists(caminho_zip):
+                        os.remove(caminho_zip)
 
-                # ========================================================
-                # FINALIZAÇÃO
-                # ========================================================
-                context.close()
+                    download.save_as(caminho_zip)
+                    
+                    try:
+                        self.root.after(0, lambda c=codigo: self.status_var.set(f"Status: Extraindo e padronizando o {c}..."))
+                        with zipfile.ZipFile(caminho_zip, 'r') as zip_ref:
+                            lista_arquivos = zip_ref.namelist()
+                            
+                            if lista_arquivos:
+                                nome_original_no_zip = lista_arquivos[0]
+                                
+                                # Extrai
+                                zip_ref.extract(nome_original_no_zip, pasta_relatorio)
+                                
+                                # Descobre extensão e define nome padronizado
+                                _, extensao = os.path.splitext(nome_original_no_zip)
+                                nome_padronizado = f"Base_Relatorio{extensao}"
+                                
+                                caminho_arquivo_extraido = os.path.join(pasta_relatorio, nome_original_no_zip)
+                                caminho_arquivo_padronizado = os.path.join(pasta_relatorio, nome_padronizado)
+                                
+                                # Substitui o antigo pelo novo
+                                if os.path.exists(caminho_arquivo_padronizado):
+                                    os.remove(caminho_arquivo_padronizado)
+                                os.rename(caminho_arquivo_extraido, caminho_arquivo_padronizado)
+                                
+                        arquivos_baixados.append(f"Pasta: Relatorio_{codigo} (Arquivo 'Base_Relatorio' atualizado)")
+                        
+                    except Exception as e:
+                        print(f"Erro ao extrair zip do {codigo}: {e}")
+                        arquivos_baixados.append(f"Erro ao extrair o {codigo}")
+                    # ========================================================
+                    
+                    # Ao final de cada relatório, ele simplesmente fecha essa aba.
+                    # O próximo relatório no loop vai criar uma aba virgem e começar do zero.
+                    context.close()
+
+                # Quando todos terminarem, fecha o navegador geral
                 browser.close()
                 
-                msg_final = "Arquivos salvos em Downloads:\n" + "\n".join(arquivos_baixados)
+                msg_final = "Processo concluído! Os arquivos estão em 'Downloads':\n\n" + "\n".join(arquivos_baixados)
                 
                 self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
                 self.root.after(0, lambda: messagebox.showinfo("Sucesso", msg_final))
