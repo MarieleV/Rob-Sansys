@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 import schedule
+from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 # Arquivo onde os dados de login e configurações serão salvos
@@ -253,21 +254,18 @@ class AppAutomacao:
     def automacao_playwright(self, usuario, senha, lista_relatorios):
         try:
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=False) 
+                # O NAVEGADOR ESTÁ 100% INVISÍVEL
+                browser = playwright.chromium.launch(headless=True) 
                 
                 pasta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
                 arquivos_baixados = []
 
-                # O ROBÔ VAI REPETIR TUDO ABAIXO PARA CADA RELATÓRIO
-                # A mágica aqui: Ele abre uma aba limpa e loga de novo para CADA relatório. Assim nunca trava!
                 for codigo in lista_relatorios:
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Status: Acessando sistema para o relatório {c}..."))
                     
-                    # Cria uma nova "sessão" virgem
-                    context = browser.new_context()
+                    context = browser.new_context(viewport={'width': 1920, 'height': 1080}, locale='pt-BR')
                     page = context.new_page()
                     
-                    # FAZ O LOGIN DO ZERO
                     page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
                     
                     page.get_by_placeholder("Usuário").click(force=True)
@@ -277,15 +275,19 @@ class AppAutomacao:
                     page.get_by_placeholder("Senha").fill(senha, force=True)
                     page.get_by_placeholder("Senha").press("Enter") 
                     
-                    page.wait_for_timeout(2000)
-                    page.keyboard.press("Enter") 
-                    page.wait_for_timeout(5000)
+                    page.wait_for_timeout(3000)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(1000)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(4000)
 
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Status: Extraindo relatório {c}..."))
                     
-                    # Como acabou de logar, a tela tá limpa, então ele SEMPRE vai no menu sem erro
-                    page.locator("i.material-icons", has_text="menu").click()
-                    page.wait_for_timeout(3000)
+                    try:
+                        page.locator("i.material-icons").filter(has_text="menu").click(timeout=3000)
+                        page.wait_for_timeout(2000)
+                    except:
+                        pass
 
                     page.get_by_text("Gerencial", exact=True).click()
                     page.get_by_text("Relatório Customizado", exact=True).click()
@@ -297,11 +299,24 @@ class AppAutomacao:
                     page.locator('button[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.icAbrir"]').first.click()
                     page.wait_for_timeout(4000)
                     
-                    # PREENCHIMENTO DOS FILTROS
+                    # ========================================================
+                    # O SEGREDO DESVENDADO: AS MÁSCARAS DIFERENTES
+                    # ========================================================
+                    data_completa = datetime.now().strftime("%d%m%Y")
+                    mes_ano = datetime.now().strftime("%m%Y") 
+                    
                     if codigo == "075":
-                        page.locator("img.x-form-date-trigger:visible").first.click()
-                        page.wait_for_timeout(500) 
-                        page.locator("button:visible", has_text="Hoje").first.click()
+                        campo_data_075 = page.get_by_role("textbox").nth(0)
+                        campo_data_075.click(force=True)
+                        page.keyboard.press("Home")
+                        page.wait_for_timeout(200)
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
+                        page.wait_for_timeout(200)
+                        
+                        campo_data_075.press_sequentially(mes_ano, delay=100)
+                        page.keyboard.press("Tab")
+                        page.wait_for_timeout(500)
                         
                         page.get_by_role("textbox", name="Grupo Faturamento (Informe 0").fill("0", force=True)
                         page.wait_for_timeout(3000)
@@ -309,22 +324,28 @@ class AppAutomacao:
                     elif codigo == "786":
                         campo_data_inicial = page.get_by_role("textbox").nth(0)
                         campo_data_inicial.click(force=True)
-                        page.wait_for_timeout(500)
-                        
+                        page.keyboard.press("Home")
+                        page.wait_for_timeout(200)
                         page.keyboard.press("Control+A")
                         page.keyboard.press("Backspace")
                         page.wait_for_timeout(200)
                         
-                        campo_data_inicial.press_sequentially("19082026", delay=100) # mudar a data para 01012024
-                        page.wait_for_timeout(1000)
-                        
+                        campo_data_inicial.press_sequentially("01012024", delay=100) 
                         page.keyboard.press("Tab")
                         page.wait_for_timeout(500)
 
-                        page.locator("img.x-form-date-trigger:visible").nth(1).click()
-                        page.wait_for_timeout(500)
-                        page.locator("button:visible", has_text="Hoje").first.click()
+                        campo_data_final = page.get_by_role("textbox").nth(1)
+                        campo_data_final.click(force=True)
+                        page.keyboard.press("Home")
+                        page.wait_for_timeout(200)
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
+                        page.wait_for_timeout(200)
+                        
+                        campo_data_final.press_sequentially(data_completa, delay=100)
+                        page.keyboard.press("Tab")
                         page.wait_for_timeout(2000)
+                    # ========================================================
                     
                     page.get_by_text("Executar", exact=True).click()
 
@@ -336,9 +357,6 @@ class AppAutomacao:
                         
                     download = download_info.value
                     
-                    # ========================================================
-                    # LÓGICA DE PASTAS E DESEMPACOTAMENTO PADRONIZADO
-                    # ========================================================
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{codigo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     
@@ -358,17 +376,14 @@ class AppAutomacao:
                             if lista_arquivos:
                                 nome_original_no_zip = lista_arquivos[0]
                                 
-                                # Extrai
                                 zip_ref.extract(nome_original_no_zip, pasta_relatorio)
                                 
-                                # Descobre extensão e define nome padronizado
                                 _, extensao = os.path.splitext(nome_original_no_zip)
                                 nome_padronizado = f"Base_Relatorio{extensao}"
                                 
                                 caminho_arquivo_extraido = os.path.join(pasta_relatorio, nome_original_no_zip)
                                 caminho_arquivo_padronizado = os.path.join(pasta_relatorio, nome_padronizado)
                                 
-                                # Substitui o antigo pelo novo
                                 if os.path.exists(caminho_arquivo_padronizado):
                                     os.remove(caminho_arquivo_padronizado)
                                 os.rename(caminho_arquivo_extraido, caminho_arquivo_padronizado)
@@ -378,13 +393,9 @@ class AppAutomacao:
                     except Exception as e:
                         print(f"Erro ao extrair zip do {codigo}: {e}")
                         arquivos_baixados.append(f"Erro ao extrair o {codigo}")
-                    # ========================================================
                     
-                    # Ao final de cada relatório, ele simplesmente fecha essa aba.
-                    # O próximo relatório no loop vai criar uma aba virgem e começar do zero.
                     context.close()
 
-                # Quando todos terminarem, fecha o navegador geral
                 browser.close()
                 
                 msg_final = "Processo concluído! Os arquivos estão em 'Downloads':\n\n" + "\n".join(arquivos_baixados)
