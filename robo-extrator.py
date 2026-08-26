@@ -1,19 +1,20 @@
 import os
-import json
 import time
+import json
 import zipfile
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox
 import schedule
+import threading
+import pandas as pd
+import tkinter as tk
 from datetime import datetime
+from tkinter import ttk, messagebox
 from playwright.sync_api import sync_playwright
 
 # Arquivo onde os dados de login e configurações serão salvos
 ARQUIVO_CONFIG = "config.json"
 
 class AppAutomacao:
-    def __init__(self, root):
+    def __init__(self, root): 
         self.root = root
         self.root.title("Robô de Extração - Águas de Joinville")
         self.root.geometry("420x580") 
@@ -120,7 +121,7 @@ class AppAutomacao:
     # ==========================================
     def minimizar_login(self):
         self.frame_form_login.pack_forget() 
-        self.lbl_usuario_salvo.config(text=f"✔ Logado como: {self.usuario_var.get()}")
+        self.lbl_usuario_salvo.config(text=f"Logado como: {self.usuario_var.get()}")
         self.frame_login_minimizado.pack(pady=5) 
 
     def expandir_login(self):
@@ -384,9 +385,30 @@ class AppAutomacao:
                                 caminho_arquivo_extraido = os.path.join(pasta_relatorio, nome_original_no_zip)
                                 caminho_arquivo_padronizado = os.path.join(pasta_relatorio, nome_padronizado)
                                 
+                                # Substitui o antigo pelo novo
                                 if os.path.exists(caminho_arquivo_padronizado):
                                     os.remove(caminho_arquivo_padronizado)
                                 os.rename(caminho_arquivo_extraido, caminho_arquivo_padronizado)
+                                
+                                # ========================================================
+                                # LIMPEZA DA PLANILHA (REMOVENDO AS 3 PRIMEIRAS LINHAS)
+                                # ========================================================
+                                try:
+                                    if extensao.lower() in ['.xlsx', '.xls']:
+                                        # O skiprows=3 faz o script ignorar as três primeiras linhas ao ler
+                                        df = pd.read_excel(caminho_arquivo_padronizado, skiprows=3)
+                                        
+                                        # Salva o arquivo limpo por cima dele mesmo
+                                        df.to_excel(caminho_arquivo_padronizado, index=False)
+                                        
+                                    elif extensao.lower() == '.csv':
+                                        # Se o relatório vier como CSV, aplica a mesma lógica
+                                        df = pd.read_csv(caminho_arquivo_padronizado, skiprows=3, sep=';')
+                                        df.to_csv(caminho_arquivo_padronizado, index=False, sep=';')
+                                        
+                                except Exception as e_planilha:
+                                    print(f"Aviso: Não foi possível limpar a planilha: {e_planilha}")
+                                # ========================================================
                                 
                         arquivos_baixados.append(f"Pasta: Relatorio_{codigo} (Arquivo 'Base_Relatorio' atualizado)")
                         
