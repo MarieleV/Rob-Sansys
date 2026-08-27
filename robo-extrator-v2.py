@@ -85,14 +85,14 @@ class AppAutomacao:
         frame_relatorios = ttk.Frame(self.main_frame)
         frame_relatorios.pack(pady=5)
         
-        ttk.Label(frame_relatorios, text="Extração Manual (Imediata):").pack(pady=5)
+        ttk.Label(frame_relatorios, text="Extração Imediata:").pack(pady=5)
         
         frame_checks = ttk.Frame(frame_relatorios)
         frame_checks.pack()
         ttk.Checkbutton(frame_checks, text="Relatório 075", variable=self.relatorio_075_var).pack(side=tk.LEFT, padx=10)
         ttk.Checkbutton(frame_checks, text="Relatório 786", variable=self.relatorio_786_var).pack(side=tk.LEFT, padx=10)
 
-        ttk.Button(self.main_frame, text="▶ Extrair Agora", command=self.iniciar_extracao_agora, width=35).pack(pady=10)
+        ttk.Button(self.main_frame, text="▶ Extrair", command=self.iniciar_extracao_agora, width=35).pack(pady=10)
 
         ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=5)
 
@@ -103,7 +103,7 @@ class AppAutomacao:
         frame_agendas_container.pack(fill='x', pady=5)
 
         # Agendamento 075 (Esquerda)
-        frame_agenda_075 = ttk.LabelFrame(frame_agendas_container, text="Agendar 075 (HH:MM)")
+        frame_agenda_075 = ttk.LabelFrame(frame_agendas_container, text="Agendar 075")
         frame_agenda_075.pack(side=tk.LEFT, fill='both', expand=True, padx=5)
         
         ttk.Entry(frame_agenda_075, textvariable=self.h1_075_var, width=10, justify="center").pack(pady=3)
@@ -111,14 +111,14 @@ class AppAutomacao:
         ttk.Entry(frame_agenda_075, textvariable=self.h3_075_var, width=10, justify="center").pack(pady=3)
 
         # Agendamento 786 (Direita)
-        frame_agenda_786 = ttk.LabelFrame(frame_agendas_container, text="Agendar 786 (HH:MM)")
+        frame_agenda_786 = ttk.LabelFrame(frame_agendas_container, text="Agendar 786")
         frame_agenda_786.pack(side=tk.RIGHT, fill='both', expand=True, padx=5)
         
         ttk.Entry(frame_agenda_786, textvariable=self.h1_786_var, width=10, justify="center").pack(pady=3)
         ttk.Entry(frame_agenda_786, textvariable=self.h2_786_var, width=10, justify="center").pack(pady=3)
         ttk.Entry(frame_agenda_786, textvariable=self.h3_786_var, width=10, justify="center").pack(pady=3)
 
-        ttk.Button(self.main_frame, text="Salvar Agendamentos", command=self.agendar_extracao).pack(pady=10)
+        ttk.Button(self.main_frame, text="Salvar", command=self.agendar_extracao).pack(pady=10)
 
         # ==========================================
         # STATUS
@@ -127,7 +127,7 @@ class AppAutomacao:
 
     def minimizar_login(self):
         self.frame_form_login.pack_forget() 
-        self.lbl_usuario_salvo.config(text=f"✔ Logado como: {self.usuario_var.get()}")
+        self.lbl_usuario_salvo.config(text=f"{self.usuario_var.get()}")
         self.frame_login_minimizado.pack(pady=5) 
 
     def expandir_login(self):
