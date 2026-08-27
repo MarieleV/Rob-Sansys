@@ -1,3 +1,4 @@
+# versão finalizada com extração e limpeza dos relatórios 075 e 786, com agendamento e interface gráfica.
 import os
 import json
 import time
