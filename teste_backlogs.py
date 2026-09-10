@@ -10,10 +10,10 @@ def testar_backlogs(usuario, senha):
 
         for tipo in relatorios:
             print(f"\n{'='*50}")
-            print(f"🚀 INICIANDO EXTRAÇÃO: BACKLOG DE {tipo.upper()}")
+            print(f" INICIANDO EXTRAÇÃO: BACKLOG DE {tipo.upper()}")
             print(f"{'='*50}")
 
-            # 🌟 MUDANÇA AQUI: Criamos um contexto (uma aba limpa) para CADA relatório
+            # MUDANÇA AQUI: Criamos um contexto (uma aba limpa) para CADA relatório
             context = browser.new_context(viewport={'width': 1920, 'height': 1080}, locale='pt-BR')
             page = context.new_page()
 
