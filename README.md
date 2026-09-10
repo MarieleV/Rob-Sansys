@@ -34,7 +34,7 @@
     <td>Automação robusta com Playwright projetada para lidar com lentidão extrema e elementos dinâmicos (ExtJS) utilizando mapeamento por <code>cfgname</code> e interações de teclado.</td>
   </tr>
   <tr>
-    <td>📊 <b>Data Cleaning Automático</b></td>
+    <td><b>Data Cleaning Automático</b></td>
     <td>Processamento embutido com Pandas: extrai Zips, pula linhas de cabeçalho do sistema e remove colunas sensíveis automaticamente antes de salvar a planilha final.</td>
   </tr>
   <tr>
