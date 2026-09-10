@@ -42,7 +42,7 @@
     <td>Motor de <i>scheduling</i> trabalhando em segundo plano para não congelar a interface gráfica. Permite configurar múltiplos horários para diferentes relatórios.</td>
   </tr>
   <tr>
-    <td>📂 <b>Organização Dinâmica</b></td>
+    <td><b>Organização Dinâmica</b></td>
     <td>Salva as configurações localmente em um <code>config.json</code> e roteia os relatórios tratados para caminhos de rede baseados no nome do usuário do Windows.</td>
   </tr>
   <tr>
