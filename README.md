@@ -46,7 +46,7 @@
     <td>Salva as configurações localmente em um <code>config.json</code> e roteia os relatórios tratados para caminhos de rede baseados no nome do usuário do Windows.</td>
   </tr>
   <tr>
-    <td>🚀 <b>Portabilidade (Standalone)</b></td>
+    <td><b>Portabilidade (Standalone)</b></td>
     <td>Compilado via PyInstaller (<i>--onefile</i>) gerando um único executável leve (<code>.exe</code>), sem necessidade de instalação do Python na máquina do usuário final.</td>
   </tr>
 </table>
