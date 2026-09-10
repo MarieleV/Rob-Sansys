@@ -26,7 +26,7 @@
 
 <br>
 
-<h2>✨ Principais Funcionalidades</h2>
+<h2> Principais Funcionalidades</h2>
 
 <table>
   <tr>
