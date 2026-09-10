@@ -247,7 +247,16 @@ class AppAutomacao:
             self.automacao_playwright(usuario, senha, gerenciais)
         if backlogs:
             self.automacao_backlogs(usuario, senha, backlogs)
+            
+        # O caminho dinâmico para mostrar no pop-up final
+        pasta_destino = rf"C:\Users\{usuario}\CAJ\GFC - Documentos\CFC\8.PROJETOS EM ANDAMENTO\Relatórios Robô Sansys"
+        
         self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
+        # Faz pular a caixinha de aviso na tela com o novo caminho
+        self.root.after(0, lambda: messagebox.showinfo(
+            "Extração Concluída", 
+            f"Todos os relatórios foram extraídos com sucesso!\n\nEles estão salvos em:\n{pasta_destino}"
+        ))
 
     # --------------------------------------------------------- Automação Gerenciais
     def preencher_campo_data(self, page, indice, valor, espera=500):
