@@ -2,26 +2,26 @@
   <!-- Você pode trocar esse link por uma imagem do seu próprio app depois! -->
   <img src="https://img.icons8.com/fluency/96/000000/bot.png" alt="Ícone de Robô" width="80"/>
   
-  <h1>RPA: Extrator de Relatórios & Integração SharePoint</h1>
+  <h1>RPA: Extrator de Relatórios Sansys & Data Cleaning</h1>
 
   <p>
     <img src="https://img.shields.io/badge/Python-3.12+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python">
     <img src="https://img.shields.io/badge/Playwright-Web_Automation-2EAD33?style=for-the-badge&logo=playwright&logoColor=white" alt="Playwright">
-    <img src="https://img.shields.io/badge/SharePoint-Cloud-0078D4?style=for-the-badge&logo=microsoftsharepoint&logoColor=white" alt="SharePoint">
-    <img src="https://img.shields.io/badge/UI-CustomTkinter-4B8BBE?style=for-the-badge&logo=appveyor&logoColor=white" alt="CustomTkinter">
+    <img src="https://img.shields.io/badge/Pandas-Data_Cleaning-150458?style=for-the-badge&logo=pandas&logoColor=white" alt="Pandas">
+    <img src="https://img.shields.io/badge/Tkinter-GUI-4B8BBE?style=for-the-badge&logo=python&logoColor=white" alt="Tkinter">
   </p>
 
-  <p><em>Uma solução corporativa completa com interface gráfica e agendamento autônomo em background.</em></p>
+  <p><em>Uma solução corporativa completa com interface gráfica, agendamento autônomo e tratamento automático de dados.</em></p>
 </div>
 
 <br>
 
 <h2>📌 Sobre o Projeto</h2>
 <p>
-  Este projeto é uma solução de <b>Automação Robótica de Processos (RPA)</b> desenvolvida em Python. Ele resolve o gargalo de tarefas manuais e repetitivas, realizando processos que levariam horas em apenas alguns minutos. O robô é capaz de fazer login em um sistema web corporativo, navegar por menus dinâmicos, preencher filtros, aguardar o processamento de relatórios pesados, descompactar arquivos localmente e enviá-los automaticamente para a nuvem (Microsoft SharePoint).
+  Este projeto é uma solução de <b>Automação Robótica de Processos (RPA)</b> desenvolvida em Python para interagir com sistemas web legados baseados em ExtJS (Sansys). Ele soluciona o gargalo de tarefas operacionais repetitivas, realizando extrações complexas em minutos de forma 100% invisível (Modo Headless).
 </p>
 <p>
-  Toda a operação é gerenciada por uma <b>Interface Gráfica Desktop (GUI)</b> que permite ao usuário executar a tarefa na hora ou <b>agendar um horário diário</b> para execução invisível (Modo Headless).
+  O robô acessa o sistema, navega por menus dinâmicos burlando IDs voláteis através de técnicas de leitura de atributos customizados (<code>cfgname</code>) e manipulação de teclado. Após o download, ele descompacta arquivos, utiliza <b>Pandas</b> para limpar cabeçalhos inúteis e remover colunas com dados sensíveis (adequação LGPD), e salva os relatórios padronizados diretamente em um diretório departamental mapeado em rede. Tudo isso orquestrado por uma <b>Interface Gráfica (GUI) em Abas</b> com agendamento diário.
 </p>
 
 <br>
@@ -31,23 +31,23 @@
 <table>
   <tr>
     <td width="200">🌐 <b>Navegação Resiliente</b></td>
-    <td>Automação com Playwright projetada para lidar com carregamentos assíncronos e lentidão extrema de sistemas corporativos.</td>
+    <td>Automação robusta com Playwright projetada para lidar com lentidão extrema e elementos dinâmicos (ExtJS) utilizando mapeamento por <code>cfgname</code> e interações de teclado.</td>
   </tr>
   <tr>
-    <td>☁️ <b>Integração Cloud</b></td>
-    <td>Autenticação e upload seguro de arquivos Excel extraídos via API REST do Office365.</td>
+    <td>📊 <b>Data Cleaning Automático</b></td>
+    <td>Processamento embutido com Pandas: extrai Zips, pula linhas de cabeçalho do sistema e remove colunas sensíveis automaticamente antes de salvar a planilha final.</td>
   </tr>
   <tr>
     <td>⏰ <b>Agendamento (Threads)</b></td>
-    <td>Motor de <i>scheduling</i> trabalhando em segundo plano para não congelar a interface gráfica enquanto o robô aguarda o horário estipulado.</td>
+    <td>Motor de <i>scheduling</i> trabalhando em segundo plano para não congelar a interface gráfica. Permite configurar múltiplos horários para diferentes relatórios.</td>
   </tr>
   <tr>
-    <td>🔒 <b>Segurança de Dados</b></td>
-    <td>Isolamento de rotas e links internos através de variáveis de ambiente (<code>.env</code>), garantindo conformidade e segurança.</td>
+    <td>📂 <b>Organização Dinâmica</b></td>
+    <td>Salva as configurações localmente em um <code>config.json</code> e roteia os relatórios tratados para caminhos de rede baseados no nome do usuário do Windows.</td>
   </tr>
   <tr>
-    <td>🖥️ <b>Interface Moderna</b></td>
-    <td>Aplicação visual construída com <i>CustomTkinter</i>, capturando credenciais dinamicamente e exibindo logs em tempo real.</td>
+    <td>🚀 <b>Portabilidade (Standalone)</b></td>
+    <td>Compilado via PyInstaller (<i>--onefile</i>) gerando um único executável leve (<code>.exe</code>), sem necessidade de instalação do Python na máquina do usuário final.</td>
   </tr>
 </table>
 
@@ -56,16 +56,11 @@
 <h2>📂 Arquitetura do Sistema</h2>
 
 <details>
-  <summary><b>Clique para visualizar a estrutura modular de pastas</b></summary>
+  <summary><b>Clique para visualizar a estrutura unificada</b></summary>
   <br>
   
   ```text
-  ├── src/
-  │   ├── main.py           # Ponto de entrada e inicialização
-  │   ├── gui.py            # Front-end: Desenho da UI e captura de eventos
-  │   ├── automacao.py      # Back-end: Core RPA (Playwright + SharePoint API)
-  │   └── agendador.py      # Controle temporal e multiprocessamento
-  ├── .env.example          # Template seguro das variáveis de configuração
-  ├── .gitignore            # Ocultação de ambientes e caches
-  ├── requirements.txt      # Mapeamento de dependências
+  ├── robo-extrator-v4.py   # Script monolítico: UI (Tkinter), Agendador, RPA e Tratamento de Dados
+  ├── config.json           # Arquivo gerado automaticamente para cache de credenciais e horários
+  ├── requirements.txt      # Mapeamento de dependências (Playwright, Pandas, Schedule, Openpyxl)
   └── README.md             # Documentação do projeto
