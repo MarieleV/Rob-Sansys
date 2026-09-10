@@ -174,5 +174,5 @@ def testar_backlogs(usuario, senha):
 if __name__ == "__main__":
     # COLOQUE SUAS CREDENCIAIS AQUI PARA O TESTE
     USER = "mariele.vieira"
-    PASS = "M@rilia1811"
+    PASS = "Senha"
     testar_backlogs(USER, PASS)
