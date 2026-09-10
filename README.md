@@ -30,7 +30,7 @@
 
 <table>
   <tr>
-    <td width="200">🌐 <b>Navegação Resiliente</b></td>
+    <td width="200"><b>Navegação Resiliente</b></td>
     <td>Automação robusta com Playwright projetada para lidar com lentidão extrema e elementos dinâmicos (ExtJS) utilizando mapeamento por <code>cfgname</code> e interações de teclado.</td>
   </tr>
   <tr>
