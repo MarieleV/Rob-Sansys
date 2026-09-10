@@ -38,7 +38,7 @@
     <td>Processamento embutido com Pandas: extrai Zips, pula linhas de cabeçalho do sistema e remove colunas sensíveis automaticamente antes de salvar a planilha final.</td>
   </tr>
   <tr>
-    <td>⏰ <b>Agendamento (Threads)</b></td>
+    <td><b>Agendamento (Threads)</b></td>
     <td>Motor de <i>scheduling</i> trabalhando em segundo plano para não congelar a interface gráfica. Permite configurar múltiplos horários para diferentes relatórios.</td>
   </tr>
   <tr>
