@@ -16,7 +16,7 @@
 
 <br>
 
-<h2>📌 Sobre o Projeto</h2>
+<h2>Sobre o Projeto</h2>
 <p>
   Este projeto é uma solução de <b>Automação Robótica de Processos (RPA)</b> desenvolvida em Python para interagir com sistemas web legados baseados em ExtJS (Sansys). Ele soluciona o gargalo de tarefas operacionais repetitivas, realizando extrações complexas em minutos de forma 100% invisível (Modo Headless).
 </p>
