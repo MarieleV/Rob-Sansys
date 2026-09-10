@@ -92,7 +92,7 @@ class AppAutomacao:
         # ABA 1: Relatórios Gerenciais
         self.aba_gerenciais = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.aba_gerenciais, text="Gerenciais")
-        # 🌟 MUDANÇA: Mudei o último número de 2 para 4 (assim cria 4 colunas lado a lado)
+        # 🌟 "MUDANÇA: Mudei o último número de 2 para 4 (assim cria 4 colunas lado a lado)
         self.montar_aba_relatorios(self.aba_gerenciais, REPORTS, 4)
 
         # ABA 2: Backlogs
@@ -127,7 +127,7 @@ class AppAutomacao:
         frame_grid = ttk.Frame(aba)
         frame_grid.pack(fill='both', expand=True)
         
-        # 🌟 O TRUQUE PARA CENTRALIZAR: Configura as colunas para dividirem o espaço igualmente
+        #O TRUQUE PARA CENTRALIZAR: Configura as colunas para dividirem o espaço igualmente
         for i in range(colunas_grid):
             frame_grid.grid_columnconfigure(i, weight=1)
         
