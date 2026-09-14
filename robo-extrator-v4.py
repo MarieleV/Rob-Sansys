@@ -508,6 +508,14 @@ class AppAutomacao:
                         os.remove(caminho_salvo)
                         
                     download.save_as(caminho_salvo)
+                    
+                    # Limpando as 3 primeiras linhas do Backlog
+                    try:
+                        self.root.after(0, lambda t=tipo: self.status_var.set(f"Limpando o Backlog {t}..."))
+                        self.limpar_planilha(caminho_salvo, '.xls', tipo)
+                    except Exception as e:
+                        print(f"Erro ao limpar a planilha do {tipo}: {e}")
+
                     page.wait_for_timeout(2000) 
                     context.close()
                 browser.close()
