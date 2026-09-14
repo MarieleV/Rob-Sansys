@@ -4,7 +4,7 @@ import time
 import zipfile
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import schedule
 import pandas as pd
 from datetime import datetime
@@ -37,12 +37,14 @@ class AppAutomacao:
     def __init__(self, root):
         self.root = root
         self.root.title("Robô de Relatórios - CAJ")
-        # 🌟 MUDANÇA: Aumentei um pouquinho a largura de 480 para 540 para caber os 4 blocos lado a lado
-        self.root.geometry("540x720")
+        # Aumentei a altura para 740 para acomodar o novo campo perfeitamente
+        self.root.geometry("540x740")
         self.root.resizable(False, False)
 
         self.usuario_var = tk.StringVar()
         self.senha_var = tk.StringVar()
+        # 🌟 NOVO: Variável para guardar o caminho dinâmico escolhido pelo usuário
+        self.caminho_var = tk.StringVar()
 
         # Variáveis para TODOS os relatórios
         self.horarios = {
@@ -63,7 +65,7 @@ class AppAutomacao:
         self.main_frame = ttk.Frame(self.root, padding=10)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 1. Login (Fixo no topo)
+        # 1. Login e Configurações (Fixo no topo)
         self.area_login = ttk.Frame(self.main_frame)
         self.area_login.pack(fill='x', pady=5)
 
@@ -73,15 +75,24 @@ class AppAutomacao:
         frame_campos = ttk.Frame(self.frame_form_login)
         frame_campos.pack()
         ttk.Label(frame_campos, text="Usuário:").grid(row=0, column=0, sticky=tk.E, padx=5, pady=5)
-        ttk.Entry(frame_campos, textvariable=self.usuario_var, width=28).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Entry(frame_campos, textvariable=self.usuario_var, width=28).grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        
         ttk.Label(frame_campos, text="Senha:").grid(row=1, column=0, sticky=tk.E, padx=5, pady=5)
-        ttk.Entry(frame_campos, textvariable=self.senha_var, show="*", width=28).grid(row=1, column=1, padx=5, pady=5)
-        ttk.Button(self.frame_form_login, text="Salvar Credenciais", command=self.salvar_configuracoes).pack(pady=10)
+        ttk.Entry(frame_campos, textvariable=self.senha_var, show="*", width=28).grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        
+        # 🌟 NOVO: Campo para escolher a pasta de destino
+        ttk.Label(frame_campos, text="Salvar em:").grid(row=2, column=0, sticky=tk.E, padx=5, pady=5)
+        frame_dir = ttk.Frame(frame_campos)
+        frame_dir.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(frame_dir, textvariable=self.caminho_var, width=21).pack(side=tk.LEFT)
+        ttk.Button(frame_dir, text="📁", width=3, command=self.selecionar_pasta).pack(side=tk.LEFT, padx=3)
+
+        ttk.Button(self.frame_form_login, text="Salvar Credenciais e Pasta", command=self.salvar_configuracoes).pack(pady=10)
 
         self.frame_login_minimizado = ttk.Frame(self.area_login)
         self.lbl_usuario_salvo = ttk.Label(self.frame_login_minimizado, text="", foreground="green")
         self.lbl_usuario_salvo.pack(side=tk.LEFT, padx=10)
-        ttk.Button(self.frame_login_minimizado, text="Editar Credenciais", command=self.expandir_login).pack(side=tk.LEFT)
+        ttk.Button(self.frame_login_minimizado, text="Editar Credenciais/Pasta", command=self.expandir_login).pack(side=tk.LEFT)
 
         ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=5)
 
@@ -89,16 +100,12 @@ class AppAutomacao:
         self.notebook = ttk.Notebook(self.main_frame)
         self.notebook.pack(fill='both', expand=True, pady=5)
 
-        # ABA 1: Relatórios Gerenciais
         self.aba_gerenciais = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.aba_gerenciais, text="Gerenciais")
-        # "MUDANÇA: Mudei o último número de 2 para 4 (assim cria 4 colunas lado a lado)
         self.montar_aba_relatorios(self.aba_gerenciais, REPORTS, 4)
 
-        # ABA 2: Backlogs
         self.aba_backlogs = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.aba_backlogs, text="Backlogs")
-        # Os backlogs mantemos em 2, pois são apenas dois relatórios, assim eles dividem a tela no meio direitinho
         self.montar_aba_relatorios(self.aba_backlogs, BACKLOGS, 2)
 
         # 3. Botões Globais (Fixos na base)
@@ -108,12 +115,10 @@ class AppAutomacao:
         ttk.Button(frame_botoes, text="▶ Extrair Imediato (Marcados)", command=self.iniciar_extracao_agora, width=35).pack(pady=5)
         ttk.Button(frame_botoes, text="Salvar Todos os Agendamentos", command=self.agendar_extracao, width=35).pack(pady=5)
 
-        # Status
+        self.status_var = tk.StringVar(value="Status: Aguardando comando...")
         ttk.Label(self.main_frame, textvariable=self.status_var, foreground="blue", justify="center").pack(side=tk.BOTTOM, pady=5)
 
     def montar_aba_relatorios(self, aba, lista_codigos, colunas_grid):
-        """Monta dinamicamente as caixas de seleção e agendamento dentro de uma aba"""
-        # Checkboxes
         ttk.Label(aba, text="Selecionar para Extração Imediata:").pack(pady=5)
         frame_checks = ttk.Frame(aba)
         frame_checks.pack(pady=5)
@@ -122,28 +127,32 @@ class AppAutomacao:
         
         ttk.Separator(aba, orient='horizontal').pack(fill='x', pady=10)
         
-        # Grid de Agendamentos
         ttk.Label(aba, text="Horários de Agendamento (HH:MM):").pack(pady=5)
         frame_grid = ttk.Frame(aba)
         frame_grid.pack(fill='both', expand=True)
         
-        #O TRUQUE PARA CENTRALIZAR: Configura as colunas para dividirem o espaço igualmente
         for i in range(colunas_grid):
             frame_grid.grid_columnconfigure(i, weight=1)
         
         for index, codigo in enumerate(lista_codigos):
             row = index // colunas_grid
             col = index % colunas_grid
-            # Adicionei um padding interno para a caixinha ficar mais robusta visualmente
             frame = ttk.LabelFrame(frame_grid, text=f"Agendar {codigo}")
             frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
             
             for var in self.horarios[codigo]:
                 ttk.Entry(frame, textvariable=var, width=10, justify="center").pack(pady=2)
 
+    # 🌟 NOVO: Função para o usuário navegar e escolher a pasta no Windows
+    def selecionar_pasta(self):
+        pasta_selecionada = filedialog.askdirectory(title="Selecione onde os relatórios serão salvos")
+        if pasta_selecionada:
+            # Converte as barras invertidas para o padrão do Windows e salva
+            self.caminho_var.set(os.path.normpath(pasta_selecionada))
+
     def minimizar_login(self):
         self.frame_form_login.pack_forget()
-        self.lbl_usuario_salvo.config(text=f"{self.usuario_var.get()}")
+        self.lbl_usuario_salvo.config(text=f"Usuário: {self.usuario_var.get()} | Pasta Configurada")
         self.frame_login_minimizado.pack(pady=5)
 
     def expandir_login(self):
@@ -153,6 +162,8 @@ class AppAutomacao:
     # ------------------------------------------------------------ Config & Schedule
     def carregar_configuracoes(self):
         if not os.path.exists(ARQUIVO_CONFIG):
+            # Se for a primeira vez, sugere a pasta Downloads padrão
+            self.caminho_var.set(os.path.join(os.path.expanduser("~"), "Downloads"))
             return
         try:
             with open(ARQUIVO_CONFIG, "r") as f:
@@ -160,6 +171,7 @@ class AppAutomacao:
 
             self.usuario_var.set(dados.get("usuario", ""))
             self.senha_var.set(dados.get("senha", ""))
+            self.caminho_var.set(dados.get("caminho_destino", os.path.join(os.path.expanduser("~"), "Downloads")))
 
             for codigo in TODOS_RELATORIOS:
                 for i, var in enumerate(self.horarios[codigo]):
@@ -167,22 +179,26 @@ class AppAutomacao:
                     var.set(dados.get(f"h{i + 1}_{codigo}", padrao))
                 self.relatorio_vars[codigo].set(dados.get(f"relatorio_{codigo}", True))
 
-            if self.usuario_var.get() and self.senha_var.get():
+            if self.usuario_var.get() and self.senha_var.get() and self.caminho_var.get():
                 self.minimizar_login()
         except Exception as e:
             print(f"Erro ao carregar: {e}")
 
     def salvar_configuracoes(self):
-        usuario, senha = self.usuario_var.get().strip(), self.senha_var.get().strip()
-        if not usuario or not senha:
-            messagebox.showwarning("Atenção", "Preencha usuário e senha para salvar.")
+        usuario, senha, caminho = self.usuario_var.get().strip(), self.senha_var.get().strip(), self.caminho_var.get().strip()
+        if not usuario or not senha or not caminho:
+            messagebox.showwarning("Atenção", "Preencha usuário, senha e escolha a pasta para salvar.")
             return
         self.salvar_horarios_silencioso()
-        messagebox.showinfo("Sucesso", "Salvo com sucesso!")
+        messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
         self.minimizar_login()
 
     def salvar_horarios_silencioso(self):
-        dados = {"usuario": self.usuario_var.get().strip(), "senha": self.senha_var.get().strip()}
+        dados = {
+            "usuario": self.usuario_var.get().strip(), 
+            "senha": self.senha_var.get().strip(),
+            "caminho_destino": self.caminho_var.get().strip()
+        }
         for codigo in TODOS_RELATORIOS:
             for i, var in enumerate(self.horarios[codigo]):
                 dados[f"h{i + 1}_{codigo}"] = var.get().strip()
@@ -212,20 +228,19 @@ class AppAutomacao:
             messagebox.showerror("Erro", f"Formato de hora inválido.\nErro: {e}")
 
     def disparar_agendado(self, relatorio):
-        usuario, senha = self.usuario_var.get(), self.senha_var.get()
-        if not usuario or not senha: return
+        usuario, senha, caminho = self.usuario_var.get(), self.senha_var.get(), self.caminho_var.get()
+        if not usuario or not senha or not caminho: return
         self.status_var.set(f"Status: Iniciando extração de {relatorio}...")
         
-        # Encaminha para a automação correta
         if relatorio in REPORTS:
-            threading.Thread(target=self.automacao_playwright, args=(usuario, senha, [relatorio]), daemon=True).start()
+            threading.Thread(target=self.automacao_playwright, args=(usuario, senha, caminho, [relatorio]), daemon=True).start()
         else:
-            threading.Thread(target=self.automacao_backlogs, args=(usuario, senha, [relatorio]), daemon=True).start()
+            threading.Thread(target=self.automacao_backlogs, args=(usuario, senha, caminho, [relatorio]), daemon=True).start()
 
     def iniciar_extracao_agora(self):
-        usuario, senha = self.usuario_var.get(), self.senha_var.get()
-        if not usuario or not senha:
-            messagebox.showwarning("Atenção", "Configure o usuário e senha.")
+        usuario, senha, caminho = self.usuario_var.get(), self.senha_var.get(), self.caminho_var.get()
+        if not usuario or not senha or not caminho:
+            messagebox.showwarning("Atenção", "Configure o usuário, senha e pasta.")
             self.expandir_login()
             return
 
@@ -237,26 +252,25 @@ class AppAutomacao:
             return
 
         self.status_var.set("Status: Iniciando extrações... Aguarde.")
-        
-        # Dispara as threads (elas podem rodar em paralelo se o sistema aguentar, 
-        # mas por segurança do Playwright, disparamos sequencialmente usando uma função mestre)
-        threading.Thread(target=self.rotear_extracoes_manuais, args=(usuario, senha, gerenciais_selecionados, backlogs_selecionados), daemon=True).start()
+        threading.Thread(target=self.rotear_extracoes_manuais, args=(usuario, senha, caminho, gerenciais_selecionados, backlogs_selecionados), daemon=True).start()
 
-    def rotear_extracoes_manuais(self, usuario, senha, gerenciais, backlogs):
-        if gerenciais:
-            self.automacao_playwright(usuario, senha, gerenciais)
-        if backlogs:
-            self.automacao_backlogs(usuario, senha, backlogs)
-            
-        # O caminho dinâmico para mostrar no pop-up final
-        pasta_destino = rf"C:\Users\{usuario}\CAJ\GFC - Documentos\CFC\8.PROJETOS EM ANDAMENTO\Relatórios Robô Sansys"
+    def rotear_extracoes_manuais(self, usuario, senha, caminho_destino, gerenciais, backlogs):
+        sucesso = True
         
-        self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
-        # Faz pular a caixinha de aviso na tela com o novo caminho
-        self.root.after(0, lambda: messagebox.showinfo(
-            "Extração Concluída", 
-            f"Todos os relatórios foram extraídos com sucesso!\n\nEles estão salvos em:\n{pasta_destino}"
-        ))
+        if gerenciais:
+            if self.automacao_playwright(usuario, senha, caminho_destino, gerenciais) == False:
+                sucesso = False
+        if backlogs:
+            if self.automacao_backlogs(usuario, senha, caminho_destino, backlogs) == False:
+                sucesso = False
+                
+        # Só exibe sucesso se nenhuma das extrações retornou False
+        if sucesso:
+            self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
+            self.root.after(0, lambda: messagebox.showinfo(
+                "Extração Concluída", 
+                f"Todos os relatórios foram extraídos com sucesso!\n\nSalvos em:\n{caminho_destino}"
+            ))
 
     # --------------------------------------------------------- Automação Gerenciais
     def preencher_campo_data(self, page, indice, valor, espera=500):
@@ -284,13 +298,10 @@ class AppAutomacao:
         elif codigo == "579":
             self.preencher_campo_data(page, 0, datas["mes_ano_barra"])
 
-    def automacao_playwright(self, usuario, senha, lista_relatorios):
+    def automacao_playwright(self, usuario, senha, pasta_destino, lista_relatorios):
         try:
             with sync_playwright() as playwright:
-                # Modifique headless=False caso queira ver o navegador na versão final
                 browser = playwright.chromium.launch(headless=True)
-                # O "rf" na frente permite usar barras do Windows (\) e variáveis ao mesmo tempo!
-                pasta_destino = rf"C:\Users\{usuario}\CAJ\GFC - Documentos\CFC\8.PROJETOS EM ANDAMENTO\Relatórios Robô Sansys"
                 arquivos_baixados = []
 
                 datas = {
@@ -343,6 +354,7 @@ class AppAutomacao:
                         botao_download.click()
                     download = download_info.value
 
+                    # Usa a pasta escolhida pelo usuário
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{codigo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     nome_sugerido = download.suggested_filename
@@ -363,14 +375,15 @@ class AppAutomacao:
                 browser.close()
         except Exception as e:
             self.root.after(0, lambda: self.status_var.set("Erro na extração Gerencial."))
-            print(f"Erro: {e}")
+            self.root.after(0, lambda erro=str(e): messagebox.showerror("Erro Inesperado", f"Falha no Gerencial:\n{erro}"))
+            return False
+        return True
 
-    # --------------------------------------------------------- Automação Backlogs (NOVO)
-    def automacao_backlogs(self, usuario, senha, lista_backlogs):
+    # --------------------------------------------------------- Automação Backlogs
+    def automacao_backlogs(self, usuario, senha, pasta_destino, lista_backlogs):
         try:
             with sync_playwright() as playwright:
-                # Modifique headless=False caso queira ver o navegador na versão final
-                browser = playwright.chromium.launch(headless=True)
+                browser = playwright.chromium.launch(channel="msedge", headless=True)
                 
                 for tipo in lista_backlogs:
                     self.root.after(0, lambda t=tipo: self.status_var.set(f"Extraindo Backlog: {t}..."))
@@ -379,7 +392,6 @@ class AppAutomacao:
                     page = context.new_page()
                     page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
 
-                    # Login
                     page.get_by_placeholder("Usuário").click(force=True)
                     page.get_by_placeholder("Usuário").fill(usuario, force=True)
                     page.get_by_placeholder("Usuário").press("Tab")
@@ -391,7 +403,6 @@ class AppAutomacao:
                     page.keyboard.press("Enter")
                     page.wait_for_timeout(4000)
 
-                    # Navegação
                     try:
                         page.locator("i.material-icons").filter(has_text="menu").click(timeout=3000)
                         page.wait_for_timeout(2000)
@@ -406,7 +417,6 @@ class AppAutomacao:
                     page.locator("a").filter(has_text="OPE0002").first.click()
                     page.wait_for_timeout(6000) 
 
-                    # Filtros Comuns
                     try:
                         campo_servicos = page.locator(".x-form-item").filter(has_text="Serviços de:").locator("input")
                         campo_servicos.click(force=True, timeout=2000)
@@ -451,7 +461,6 @@ class AppAutomacao:
                         page.keyboard.press("Tab")
                     except: pass
 
-                    # Filtros Específicos
                     if tipo == "Fiscalizacao":
                         situacoes = ["Para Reprogramar", "Pendente", "Postergada", "Programado"]
                         texto_setor = "CIA - CFC"
@@ -484,12 +493,12 @@ class AppAutomacao:
                         page.wait_for_timeout(1000)
                     except: pass
 
-                    # Download
                     with page.expect_download(timeout=300000) as download_info:
                         page.get_by_role("button", name="Confirmar").click()
                         
                     download = download_info.value
-                    pasta_destino = rf"C:\Users\{usuario}\CAJ\GFC - Documentos\CFC\8.PROJETOS EM ANDAMENTO\Relatórios Robô Sansys"
+                    
+                    # Usa a pasta escolhida pelo usuário
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{tipo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     
@@ -503,8 +512,10 @@ class AppAutomacao:
                     context.close()
                 browser.close()
         except Exception as e:
-            self.root.after(0, lambda: self.status_var.set("Erro na extração dos Backlogs."))
-            print(f"Erro: {e}")
+            self.root.after(0, lambda: self.status_var.set("Erro na extração Gerencial."))
+            self.root.after(0, lambda erro=str(e): messagebox.showerror("Erro Inesperado", f"Falha no Gerencial:\n{erro}"))
+            return False
+        return True
 
     # ---------------------------------------------------- Pós-processamento (Inalterado)
     def padronizar_arquivo(self, caminho_salvo, extensao_sugerida, pasta_relatorio):
