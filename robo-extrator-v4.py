@@ -549,17 +549,49 @@ class AppAutomacao:
 
     def limpar_planilha(self, caminho, extensao, codigo):
         try:
+            import gc # Importa o limpador de memória do Python
+            
             ext = extensao.lower()
-            if ext in ('.xlsx', '.xls'): df = pd.read_excel(caminho, skiprows=3)
-            elif ext == '.csv': df = pd.read_csv(caminho, skiprows=3, sep=';')
+            
+            # REGRA DINÂMICA: 
+            # Se for Backlog, pula 4 linhas. Se for Gerencial, mantém as 3.
+            linhas_pular = 4 if codigo in ["Fiscalizacao", "Notificacao"] else 3
+
+            if ext in ('.xlsx', '.xls'): 
+                df = pd.read_excel(caminho, skiprows=linhas_pular)
+            elif ext == '.csv': 
+                df = pd.read_csv(caminho, skiprows=linhas_pular, sep=';')
             else: return
 
             colunas_presentes = [c for c in COLUNAS_REMOVER.get(codigo, []) if c in df.columns]
             if colunas_presentes:
                 df.drop(columns=colunas_presentes, inplace=True)
 
-            if ext in ('.xlsx', '.xls'): df.to_excel(caminho, index=False)
-            else: df.to_csv(caminho, index=False, sep=';')
+            if ext in ('.xlsx', '.xls'):
+                caminho_novo = caminho
+                if ext == '.xls':
+                    # Forma mais segura de trocar a extensão (.xls tem 4 caracteres, cortamos e botamos .xlsx)
+                    caminho_novo = caminho[:-4] + '.xlsx'
+                
+                df.to_excel(caminho_novo, index=False)
+                
+                # DELETA O ARQUIVO ANTIGO COM FORÇA BRUTA
+                if caminho_novo != caminho:
+                    df = None # Destrói a variável da planilha
+                    gc.collect() # Força o sistema a esquecer o arquivo
+                    
+                    # Tenta apagar até 5 vezes (vence o Antivírus pelo cansaço)
+                    for tentativa in range(5):
+                        try:
+                            if os.path.exists(caminho):
+                                os.remove(caminho)
+                            break # Se conseguiu apagar, sai do loop imediatamente!
+                        except:
+                            import time
+                            time.sleep(1) # Espera 1 segundo e tenta de novo
+            else: 
+                df.to_csv(caminho, index=False, sep=';')
+                
         except Exception as e_planilha:
             print(f"Aviso: Não foi possível limpar os dados da planilha do {codigo}: {e_planilha}")
 
