@@ -22,6 +22,16 @@ DEFAULT_H1 = {
     "Fiscalizacao": "09:00", "Notificacao": "09:15"
 }
 
+# 🌟 NOVO: Mapeamento exato dos nomes para o Power BI
+NOMES_FINAIS = {
+    "075": "Rel-075",
+    "786": "Rel-786",
+    "468": "Rel-468",
+    "579": "Rel-579",
+    "Fiscalizacao": "Backlog-Fisc",
+    "Notificacao": "Backlog-Not"
+}
+
 COLUNAS_REMOVER = {
     "075": [
         "Endereço", "CEP", "Inscrição imobiliária", "Proprietário",
@@ -261,24 +271,20 @@ class AppAutomacao:
                 f"Todos os relatórios foram extraídos com sucesso!\n\nSalvos em:\n{caminho_destino}"
             ))
 
-    # 🌟 A NOVA FUNÇÃO CAÇA-FANTASMAS
     def clicar_visivel(self, locator):
         """Clica apenas no elemento que está ativamente visível na tela, ignorando clones invisíveis do Sansys."""
         try:
             locator.first.wait_for(state="attached", timeout=5000)
         except:
-            pass # Se demorar, segue em frente pois o loop abaixo resolve
+            pass 
         
-        # Procura entre todos os "clones" e clica no que estiver visível
         for i in range(locator.count()):
             if locator.nth(i).is_visible():
                 locator.nth(i).click()
                 return
         
-        # Se nenhum estiver visível pelas regras do Playwright, força no último criado
         if locator.count() > 0:
             locator.last.click(force=True)
-
 
     # --------------------------------------------------------- Automação Gerenciais
     def preencher_campo_data(self, page, indice, valor, espera=500):
@@ -338,7 +344,6 @@ class AppAutomacao:
 
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Extraindo Gerencial: {c}..."))
                     
-                    # 🌟 Uso da nova função de clique no Menu
                     try:
                         self.clicar_visivel(page.locator("i.material-icons").filter(has_text="menu"))
                         page.wait_for_timeout(2000)
@@ -376,7 +381,8 @@ class AppAutomacao:
 
                     try:
                         self.root.after(0, lambda c=codigo: self.status_var.set(f"Limpando o Gerencial {c}..."))
-                        caminho_final, extensao = self.padronizar_arquivo(caminho_salvo, extensao_sugerida, pasta_relatorio)
+                        # 🌟 Alteração: Passamos o código para a função saber qual nome colocar
+                        caminho_final, extensao = self.padronizar_arquivo(caminho_salvo, extensao_sugerida, pasta_relatorio, codigo)
                         self.limpar_planilha(caminho_final, extensao, codigo)
                         arquivos_baixados.append(f"Relatorio_{codigo}")
                     except Exception as e:
@@ -414,7 +420,6 @@ class AppAutomacao:
                     page.keyboard.press("Enter")
                     page.wait_for_timeout(4000)
 
-                    # 🌟 Uso da nova função de clique no Menu
                     try:
                         self.clicar_visivel(page.locator("i.material-icons").filter(has_text="menu"))
                         page.wait_for_timeout(2000)
@@ -514,7 +519,9 @@ class AppAutomacao:
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{tipo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     
-                    caminho_salvo = os.path.join(pasta_relatorio, f"Base_Relatorio_{tipo}.xls")
+                    # 🌟 Alteração: Puxa o nome exato do dicionário para salvar o Backlog
+                    nome_base = NOMES_FINAIS.get(tipo, f"Backlog_{tipo}")
+                    caminho_salvo = os.path.join(pasta_relatorio, f"{nome_base}.xls")
                     
                     if os.path.exists(caminho_salvo):
                         os.remove(caminho_salvo)
@@ -537,7 +544,8 @@ class AppAutomacao:
         return True
 
     # ---------------------------------------------------- Pós-processamento
-    def padronizar_arquivo(self, caminho_salvo, extensao_sugerida, pasta_relatorio):
+    # 🌟 Alteração: A função agora recebe o "codigo" para saber como deve se chamar
+    def padronizar_arquivo(self, caminho_salvo, extensao_sugerida, pasta_relatorio, codigo):
         if extensao_sugerida.lower() == '.zip':
             with zipfile.ZipFile(caminho_salvo, 'r') as zip_ref:
                 lista_arquivos = zip_ref.namelist()
@@ -552,7 +560,10 @@ class AppAutomacao:
             extensao = extensao_sugerida
             caminho_extraido = caminho_salvo
 
-        caminho_padronizado = os.path.join(pasta_relatorio, f"Base_Relatorio{extensao}")
+        # Puxa o nome exato do dicionário
+        nome_base = NOMES_FINAIS.get(codigo, f"Relatorio_{codigo}")
+        caminho_padronizado = os.path.join(pasta_relatorio, f"{nome_base}{extensao}")
+        
         if os.path.exists(caminho_padronizado):
             os.remove(caminho_padronizado)
         os.rename(caminho_extraido, caminho_padronizado)
@@ -560,6 +571,9 @@ class AppAutomacao:
 
     def limpar_planilha(self, caminho, extensao, codigo):
         try:
+            import gc
+            import time
+            
             ext = extensao.lower()
             
             linhas_pular = 4 if codigo in ["Fiscalizacao", "Notificacao"] else 3
@@ -584,8 +598,16 @@ class AppAutomacao:
                 df.to_excel(caminho_novo, index=False)
                 
                 if caminho_novo != caminho:
-                    if os.path.exists(caminho):
-                        os.remove(caminho)
+                    df = None 
+                    gc.collect() 
+                    
+                    for tentativa in range(10):
+                        try:
+                            if os.path.exists(caminho):
+                                os.remove(caminho)
+                            break 
+                        except:
+                            time.sleep(1) 
             else: 
                 df.to_csv(caminho, index=False, sep=';')
                 
