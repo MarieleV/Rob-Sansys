@@ -37,16 +37,13 @@ class AppAutomacao:
     def __init__(self, root):
         self.root = root
         self.root.title("Robô de Relatórios - CAJ")
-        # Aumentei a altura para 740 para acomodar o novo campo perfeitamente
         self.root.geometry("540x740")
         self.root.resizable(False, False)
 
         self.usuario_var = tk.StringVar()
         self.senha_var = tk.StringVar()
-        # 🌟 NOVO: Variável para guardar o caminho dinâmico escolhido pelo usuário
         self.caminho_var = tk.StringVar()
 
-        # Variáveis para TODOS os relatórios
         self.horarios = {
             codigo: [tk.StringVar(value=DEFAULT_H1[codigo] if i == 0 else "") for i in range(3)]
             for codigo in TODOS_RELATORIOS
@@ -80,7 +77,6 @@ class AppAutomacao:
         ttk.Label(frame_campos, text="Senha:").grid(row=1, column=0, sticky=tk.E, padx=5, pady=5)
         ttk.Entry(frame_campos, textvariable=self.senha_var, show="*", width=28).grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
         
-        # 🌟 NOVO: Campo para escolher a pasta de destino
         ttk.Label(frame_campos, text="Salvar em:").grid(row=2, column=0, sticky=tk.E, padx=5, pady=5)
         frame_dir = ttk.Frame(frame_campos)
         frame_dir.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
@@ -143,11 +139,9 @@ class AppAutomacao:
             for var in self.horarios[codigo]:
                 ttk.Entry(frame, textvariable=var, width=10, justify="center").pack(pady=2)
 
-    # 🌟 NOVO: Função para o usuário navegar e escolher a pasta no Windows
     def selecionar_pasta(self):
         pasta_selecionada = filedialog.askdirectory(title="Selecione onde os relatórios serão salvos")
         if pasta_selecionada:
-            # Converte as barras invertidas para o padrão do Windows e salva
             self.caminho_var.set(os.path.normpath(pasta_selecionada))
 
     def minimizar_login(self):
@@ -162,7 +156,6 @@ class AppAutomacao:
     # ------------------------------------------------------------ Config & Schedule
     def carregar_configuracoes(self):
         if not os.path.exists(ARQUIVO_CONFIG):
-            # Se for a primeira vez, sugere a pasta Downloads padrão
             self.caminho_var.set(os.path.join(os.path.expanduser("~"), "Downloads"))
             return
         try:
@@ -264,7 +257,6 @@ class AppAutomacao:
             if self.automacao_backlogs(usuario, senha, caminho_destino, backlogs) == False:
                 sucesso = False
                 
-        # Só exibe sucesso se nenhuma das extrações retornou False
         if sucesso:
             self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
             self.root.after(0, lambda: messagebox.showinfo(
@@ -301,7 +293,8 @@ class AppAutomacao:
     def automacao_playwright(self, usuario, senha, pasta_destino, lista_relatorios):
         try:
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=True)
+                # Usa o Microsoft Edge nativo
+                browser = playwright.chromium.launch(channel="msedge", headless=True)
                 arquivos_baixados = []
 
                 datas = {
@@ -330,14 +323,16 @@ class AppAutomacao:
 
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Extraindo Gerencial: {c}..."))
                     try:
-                        page.locator("i.material-icons").filter(has_text="menu").click(timeout=3000)
+                        page.locator("i.material-icons").filter(has_text="menu").click(force=True, timeout=3000)
                         page.wait_for_timeout(2000)
                     except:
                         pass
 
-                    page.get_by_text("Gerencial", exact=True).click()
-                    page.get_by_text("Relatório Customizado", exact=True).click()
-                    page.locator("a").filter(has_text="Processar Relatório Fonte de Dado").first.click()
+                    page.get_by_text("Gerencial", exact=True).click(force=True)
+                    page.wait_for_timeout(1000)
+                    page.get_by_text("Relatório Customizado", exact=True).click(force=True)
+                    page.wait_for_timeout(1000)
+                    page.locator("a").filter(has_text="Processar Relatório Fonte de Dado").first.click(force=True)
                     page.wait_for_timeout(4000)
 
                     page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_header"]').click()
@@ -354,7 +349,6 @@ class AppAutomacao:
                         botao_download.click()
                     download = download_info.value
 
-                    # Usa a pasta escolhida pelo usuário
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{codigo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     nome_sugerido = download.suggested_filename
@@ -383,6 +377,7 @@ class AppAutomacao:
     def automacao_backlogs(self, usuario, senha, pasta_destino, lista_backlogs):
         try:
             with sync_playwright() as playwright:
+                # Usa o Microsoft Edge nativo
                 browser = playwright.chromium.launch(channel="msedge", headless=True)
                 
                 for tipo in lista_backlogs:
@@ -404,17 +399,17 @@ class AppAutomacao:
                     page.wait_for_timeout(4000)
 
                     try:
-                        page.locator("i.material-icons").filter(has_text="menu").click(timeout=3000)
+                        page.locator("i.material-icons").filter(has_text="menu").click(force=True, timeout=3000)
                         page.wait_for_timeout(2000)
                     except:
                         pass
-                    page.get_by_text("Operacional", exact=True).first.click()
+                    page.get_by_text("Operacional", exact=True).first.click(force=True)
                     page.wait_for_timeout(1000)
-                    page.get_by_text("Serviços", exact=True).first.click()
+                    page.get_by_text("Serviços", exact=True).first.click(force=True)
                     page.wait_for_timeout(1000)
-                    page.get_by_text("Relatórios", exact=True).first.click()
+                    page.get_by_text("Relatórios", exact=True).first.click(force=True)
                     page.wait_for_timeout(1000)
-                    page.locator("a").filter(has_text="OPE0002").first.click()
+                    page.locator("a").filter(has_text="OPE0002").first.click(force=True)
                     page.wait_for_timeout(6000) 
 
                     try:
@@ -498,7 +493,6 @@ class AppAutomacao:
                         
                     download = download_info.value
                     
-                    # Usa a pasta escolhida pelo usuário
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{tipo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     
@@ -509,7 +503,6 @@ class AppAutomacao:
                         
                     download.save_as(caminho_salvo)
                     
-                    # Limpando as 3 primeiras linhas do Backlog
                     try:
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Limpando o Backlog {t}..."))
                         self.limpar_planilha(caminho_salvo, '.xls', tipo)
@@ -520,12 +513,12 @@ class AppAutomacao:
                     context.close()
                 browser.close()
         except Exception as e:
-            self.root.after(0, lambda: self.status_var.set("Erro na extração Gerencial."))
-            self.root.after(0, lambda erro=str(e): messagebox.showerror("Erro Inesperado", f"Falha no Gerencial:\n{erro}"))
+            self.root.after(0, lambda: self.status_var.set("Erro na extração dos Backlogs."))
+            self.root.after(0, lambda erro=str(e): messagebox.showerror("Erro Inesperado", f"Falha nos Backlogs:\n{erro}"))
             return False
         return True
 
-    # ---------------------------------------------------- Pós-processamento (Inalterado)
+    # ---------------------------------------------------- Pós-processamento
     def padronizar_arquivo(self, caminho_salvo, extensao_sugerida, pasta_relatorio):
         if extensao_sugerida.lower() == '.zip':
             with zipfile.ZipFile(caminho_salvo, 'r') as zip_ref:
@@ -549,12 +542,11 @@ class AppAutomacao:
 
     def limpar_planilha(self, caminho, extensao, codigo):
         try:
-            import gc # Importa o limpador de memória do Python
+            import gc
             
             ext = extensao.lower()
             
-            # REGRA DINÂMICA: 
-            # Se for Backlog, pula 4 linhas. Se for Gerencial, mantém as 3.
+            # Pula 4 linhas se for Backlog, pula 3 se for Gerencial
             linhas_pular = 4 if codigo in ["Fiscalizacao", "Notificacao"] else 3
 
             if ext in ('.xlsx', '.xls'): 
@@ -570,25 +562,23 @@ class AppAutomacao:
             if ext in ('.xlsx', '.xls'):
                 caminho_novo = caminho
                 if ext == '.xls':
-                    # Forma mais segura de trocar a extensão (.xls tem 4 caracteres, cortamos e botamos .xlsx)
                     caminho_novo = caminho[:-4] + '.xlsx'
                 
                 df.to_excel(caminho_novo, index=False)
                 
-                # DELETA O ARQUIVO ANTIGO COM FORÇA BRUTA
+                # Deleta o .xls antigo (com tentativas seguras para driblar o antivírus)
                 if caminho_novo != caminho:
-                    df = None # Destrói a variável da planilha
-                    gc.collect() # Força o sistema a esquecer o arquivo
+                    df = None 
+                    gc.collect() 
                     
-                    # Tenta apagar até 5 vezes (vence o Antivírus pelo cansaço)
                     for tentativa in range(5):
                         try:
                             if os.path.exists(caminho):
                                 os.remove(caminho)
-                            break # Se conseguiu apagar, sai do loop imediatamente!
+                            break 
                         except:
                             import time
-                            time.sleep(1) # Espera 1 segundo e tenta de novo
+                            time.sleep(1) 
             else: 
                 df.to_csv(caminho, index=False, sep=';')
                 
