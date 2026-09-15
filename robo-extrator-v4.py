@@ -62,7 +62,6 @@ class AppAutomacao:
         self.main_frame = ttk.Frame(self.root, padding=10)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 1. Login e Configurações (Fixo no topo)
         self.area_login = ttk.Frame(self.main_frame)
         self.area_login.pack(fill='x', pady=5)
 
@@ -92,7 +91,6 @@ class AppAutomacao:
 
         ttk.Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=5)
 
-        # 2. Notebook (Abas para organizar a tela)
         self.notebook = ttk.Notebook(self.main_frame)
         self.notebook.pack(fill='both', expand=True, pady=5)
 
@@ -104,7 +102,6 @@ class AppAutomacao:
         self.notebook.add(self.aba_backlogs, text="Backlogs")
         self.montar_aba_relatorios(self.aba_backlogs, BACKLOGS, 2)
 
-        # 3. Botões Globais (Fixos na base)
         frame_botoes = ttk.Frame(self.main_frame)
         frame_botoes.pack(fill='x', pady=10)
         
@@ -264,6 +261,25 @@ class AppAutomacao:
                 f"Todos os relatórios foram extraídos com sucesso!\n\nSalvos em:\n{caminho_destino}"
             ))
 
+    # 🌟 A NOVA FUNÇÃO CAÇA-FANTASMAS
+    def clicar_visivel(self, locator):
+        """Clica apenas no elemento que está ativamente visível na tela, ignorando clones invisíveis do Sansys."""
+        try:
+            locator.first.wait_for(state="attached", timeout=5000)
+        except:
+            pass # Se demorar, segue em frente pois o loop abaixo resolve
+        
+        # Procura entre todos os "clones" e clica no que estiver visível
+        for i in range(locator.count()):
+            if locator.nth(i).is_visible():
+                locator.nth(i).click()
+                return
+        
+        # Se nenhum estiver visível pelas regras do Playwright, força no último criado
+        if locator.count() > 0:
+            locator.last.click(force=True)
+
+
     # --------------------------------------------------------- Automação Gerenciais
     def preencher_campo_data(self, page, indice, valor, espera=500):
         campo = page.get_by_role("textbox").nth(indice)
@@ -293,7 +309,6 @@ class AppAutomacao:
     def automacao_playwright(self, usuario, senha, pasta_destino, lista_relatorios):
         try:
             with sync_playwright() as playwright:
-                # Usa o Microsoft Edge nativo
                 browser = playwright.chromium.launch(channel="msedge", headless=True)
                 arquivos_baixados = []
 
@@ -322,17 +337,19 @@ class AppAutomacao:
                     page.wait_for_timeout(4000)
 
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Extraindo Gerencial: {c}..."))
+                    
+                    # 🌟 Uso da nova função de clique no Menu
                     try:
-                        page.locator("i.material-icons").filter(has_text="menu").click(force=True, timeout=3000)
+                        self.clicar_visivel(page.locator("i.material-icons").filter(has_text="menu"))
                         page.wait_for_timeout(2000)
                     except:
                         pass
 
-                    page.get_by_text("Gerencial", exact=True).click(force=True)
+                    self.clicar_visivel(page.get_by_text("Gerencial", exact=True))
                     page.wait_for_timeout(1000)
-                    page.get_by_text("Relatório Customizado", exact=True).click(force=True)
+                    self.clicar_visivel(page.get_by_text("Relatório Customizado", exact=True))
                     page.wait_for_timeout(1000)
-                    page.locator("a").filter(has_text="Processar Relatório Fonte de Dado").first.click(force=True)
+                    self.clicar_visivel(page.locator("a").filter(has_text="Processar Relatório Fonte de Dado"))
                     page.wait_for_timeout(4000)
 
                     page.locator('div[cfgname="processarRelatorioFonteDadoSansys.pesquisar.infRelatorioFonteDados.cdRelatorioFonteDado_header"]').click()
@@ -377,7 +394,6 @@ class AppAutomacao:
     def automacao_backlogs(self, usuario, senha, pasta_destino, lista_backlogs):
         try:
             with sync_playwright() as playwright:
-                # Usa o Microsoft Edge nativo
                 browser = playwright.chromium.launch(channel="msedge", headless=True)
                 
                 for tipo in lista_backlogs:
@@ -398,18 +414,20 @@ class AppAutomacao:
                     page.keyboard.press("Enter")
                     page.wait_for_timeout(4000)
 
+                    # 🌟 Uso da nova função de clique no Menu
                     try:
-                        page.locator("i.material-icons").filter(has_text="menu").click(force=True, timeout=3000)
+                        self.clicar_visivel(page.locator("i.material-icons").filter(has_text="menu"))
                         page.wait_for_timeout(2000)
                     except:
                         pass
-                    page.get_by_text("Operacional", exact=True).first.click(force=True)
+                        
+                    self.clicar_visivel(page.get_by_text("Operacional", exact=True))
                     page.wait_for_timeout(1000)
-                    page.get_by_text("Serviços", exact=True).first.click(force=True)
+                    self.clicar_visivel(page.get_by_text("Serviços", exact=True))
                     page.wait_for_timeout(1000)
-                    page.get_by_text("Relatórios", exact=True).first.click(force=True)
+                    self.clicar_visivel(page.get_by_text("Relatórios", exact=True))
                     page.wait_for_timeout(1000)
-                    page.locator("a").filter(has_text="OPE0002").first.click(force=True)
+                    self.clicar_visivel(page.locator("a").filter(has_text="OPE0002"))
                     page.wait_for_timeout(6000) 
 
                     try:
@@ -542,17 +560,16 @@ class AppAutomacao:
 
     def limpar_planilha(self, caminho, extensao, codigo):
         try:
-            import gc
-            
             ext = extensao.lower()
             
-            # Pula 4 linhas se for Backlog, pula 3 se for Gerencial
             linhas_pular = 4 if codigo in ["Fiscalizacao", "Notificacao"] else 3
 
             if ext in ('.xlsx', '.xls'): 
-                df = pd.read_excel(caminho, skiprows=linhas_pular)
+                with open(caminho, 'rb') as f:
+                    df = pd.read_excel(f, skiprows=linhas_pular)
             elif ext == '.csv': 
-                df = pd.read_csv(caminho, skiprows=linhas_pular, sep=';')
+                with open(caminho, 'r', encoding='utf-8', errors='ignore') as f:
+                    df = pd.read_csv(f, skiprows=linhas_pular, sep=';')
             else: return
 
             colunas_presentes = [c for c in COLUNAS_REMOVER.get(codigo, []) if c in df.columns]
@@ -566,25 +583,14 @@ class AppAutomacao:
                 
                 df.to_excel(caminho_novo, index=False)
                 
-                # Deleta o .xls antigo (com tentativas seguras para driblar o antivírus)
                 if caminho_novo != caminho:
-                    df = None 
-                    gc.collect() 
-                    
-                    for tentativa in range(5):
-                        try:
-                            if os.path.exists(caminho):
-                                os.remove(caminho)
-                            break 
-                        except:
-                            import time
-                            time.sleep(1) 
+                    if os.path.exists(caminho):
+                        os.remove(caminho)
             else: 
                 df.to_csv(caminho, index=False, sep=';')
                 
         except Exception as e_planilha:
             print(f"Aviso: Não foi possível limpar os dados da planilha do {codigo}: {e_planilha}")
-
 
 if __name__ == "__main__":
     root = tk.Tk()
