@@ -9,6 +9,7 @@ import schedule
 import pandas as pd
 from datetime import datetime
 from playwright.sync_api import sync_playwright
+import tempfile # 🌟 NOVO: Biblioteca para criar arquivos fora do OneDrive
 
 ARQUIVO_CONFIG = "config.json"
 
@@ -22,7 +23,7 @@ DEFAULT_H1 = {
     "Fiscalizacao": "09:00", "Notificacao": "09:15"
 }
 
-# 🌟 NOVO: Mapeamento exato dos nomes para o Power BI
+# Mapeamento exato dos nomes para o Power BI
 NOMES_FINAIS = {
     "075": "Rel-075",
     "786": "Rel-786",
@@ -115,7 +116,7 @@ class AppAutomacao:
         frame_botoes = ttk.Frame(self.main_frame)
         frame_botoes.pack(fill='x', pady=10)
         
-        ttk.Button(frame_botoes, text="▶ Extrair Imediato (Marcados)", command=self.iniciar_extracao_agora, width=35).pack(pady=5)
+        ttk.Button(frame_botoes, text="▶ Extrair Relatórios Marcados", command=self.iniciar_extracao_agora, width=35).pack(pady=5)
         ttk.Button(frame_botoes, text="Salvar Todos os Agendamentos", command=self.agendar_extracao, width=35).pack(pady=5)
 
         self.status_var = tk.StringVar(value="Status: Aguardando comando...")
@@ -255,16 +256,27 @@ class AppAutomacao:
         threading.Thread(target=self.rotear_extracoes_manuais, args=(usuario, senha, caminho, gerenciais_selecionados, backlogs_selecionados), daemon=True).start()
 
     def rotear_extracoes_manuais(self, usuario, senha, caminho_destino, gerenciais, backlogs):
-        sucesso = True
+        sucesso = [True] 
         
-        if gerenciais:
+        def rodar_gerenciais():
             if self.automacao_playwright(usuario, senha, caminho_destino, gerenciais) == False:
-                sucesso = False
-        if backlogs:
-            if self.automacao_backlogs(usuario, senha, caminho_destino, backlogs) == False:
-                sucesso = False
+                sucesso[0] = False
                 
-        if sucesso:
+        def rodar_backlogs():
+            if self.automacao_backlogs(usuario, senha, caminho_destino, backlogs) == False:
+                sucesso[0] = False
+
+        if gerenciais:
+            t_gerencial = threading.Thread(target=rodar_gerenciais)
+            t_gerencial.start()
+            t_gerencial.join() 
+            
+        if backlogs:
+            t_backlog = threading.Thread(target=rodar_backlogs)
+            t_backlog.start()
+            t_backlog.join()
+                
+        if sucesso[0]:
             self.root.after(0, lambda: self.status_var.set("Status: Sucesso! Processo concluído."))
             self.root.after(0, lambda: messagebox.showinfo(
                 "Extração Concluída", 
@@ -272,7 +284,6 @@ class AppAutomacao:
             ))
 
     def clicar_visivel(self, locator):
-        """Clica apenas no elemento que está ativamente visível na tela, ignorando clones invisíveis do Sansys."""
         try:
             locator.first.wait_for(state="attached", timeout=5000)
         except:
@@ -371,19 +382,34 @@ class AppAutomacao:
                         botao_download.click()
                     download = download_info.value
 
+                    # 🌟 CRIA AS PASTAS GERAIS NO ONEDRIVE
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{codigo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
+                    
+                    # 🌟 BAIXA NO BASTIDOR (TEMP DO WINDOWS) LONGE DO ONEDRIVE
+                    pasta_temp = tempfile.gettempdir()
                     nome_sugerido = download.suggested_filename
-                    _, extensao_sugerida = os.path.splitext(nome_sugerido)
-                    caminho_salvo = os.path.join(pasta_relatorio, nome_sugerido)
-                    if os.path.exists(caminho_salvo): os.remove(caminho_salvo)
-                    download.save_as(caminho_salvo)
+                    caminho_temp_salvo = os.path.join(pasta_temp, nome_sugerido)
+                    
+                    if os.path.exists(caminho_temp_salvo): 
+                        try: os.remove(caminho_temp_salvo)
+                        except: pass
+                        
+                    download.save_as(caminho_temp_salvo)
 
                     try:
                         self.root.after(0, lambda c=codigo: self.status_var.set(f"Limpando o Gerencial {c}..."))
-                        # 🌟 Alteração: Passamos o código para a função saber qual nome colocar
-                        caminho_final, extensao = self.padronizar_arquivo(caminho_salvo, extensao_sugerida, pasta_relatorio, codigo)
-                        self.limpar_planilha(caminho_final, extensao, codigo)
+                        
+                        # Extrai no bastidor (se for zip) e acha o arquivo bruto
+                        caminho_bruto_temp = self.padronizar_arquivo_temp(caminho_temp_salvo, pasta_temp)
+                        
+                        # Define o nome oficial final que irá pro OneDrive
+                        nome_base = NOMES_FINAIS.get(codigo, f"Relatorio_{codigo}")
+                        caminho_final_onedrive = os.path.join(pasta_relatorio, f"{nome_base}.xlsx")
+                        
+                        # O processamento lê o arquivo bruto do Temp, e salva o .xlsx limpo direto na nuvem
+                        self.limpar_planilha_direto(caminho_bruto_temp, caminho_final_onedrive, codigo)
+                        
                         arquivos_baixados.append(f"Relatorio_{codigo}")
                     except Exception as e:
                         print(f"Erro ao processar {codigo}: {e}")
@@ -516,21 +542,29 @@ class AppAutomacao:
                         
                     download = download_info.value
                     
+                    # 🌟 CRIA A PASTA OFICIAL NO ONEDRIVE
                     pasta_relatorio = os.path.join(pasta_destino, f"Relatorio_{tipo}")
                     os.makedirs(pasta_relatorio, exist_ok=True)
                     
-                    # 🌟 Alteração: Puxa o nome exato do dicionário para salvar o Backlog
                     nome_base = NOMES_FINAIS.get(tipo, f"Backlog_{tipo}")
-                    caminho_salvo = os.path.join(pasta_relatorio, f"{nome_base}.xls")
                     
-                    if os.path.exists(caminho_salvo):
-                        os.remove(caminho_salvo)
+                    # 🌟 BAIXA O ARQUIVO NO BASTIDOR (TEMP DO WINDOWS) LONGE DO ONEDRIVE
+                    pasta_temp = tempfile.gettempdir()
+                    caminho_temp_xls = os.path.join(pasta_temp, f"{nome_base}_bruto.xls")
+                    
+                    # Onde o arquivo oficial perfeito vai nascer
+                    caminho_final_onedrive = os.path.join(pasta_relatorio, f"{nome_base}.xlsx")
+                    
+                    if os.path.exists(caminho_temp_xls):
+                        try: os.remove(caminho_temp_xls)
+                        except: pass
                         
-                    download.save_as(caminho_salvo)
+                    download.save_as(caminho_temp_xls)
                     
                     try:
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Limpando o Backlog {t}..."))
-                        self.limpar_planilha(caminho_salvo, '.xls', tipo)
+                        # Lê do temp secreto, e envia pronto pro OneDrive
+                        self.limpar_planilha_direto(caminho_temp_xls, caminho_final_onedrive, tipo)
                     except Exception as e:
                         print(f"Erro ao limpar a planilha do {tipo}: {e}")
 
@@ -543,73 +577,54 @@ class AppAutomacao:
             return False
         return True
 
-    # ---------------------------------------------------- Pós-processamento
-    # 🌟 Alteração: A função agora recebe o "codigo" para saber como deve se chamar
-    def padronizar_arquivo(self, caminho_salvo, extensao_sugerida, pasta_relatorio, codigo):
+    # ---------------------------------------------------- Pós-processamento Otimizado
+    # 🌟 Função que trata a descompactação longe do OneDrive (Pasta Temp)
+    def padronizar_arquivo_temp(self, caminho_salvo_temp, pasta_temp):
+        _, extensao_sugerida = os.path.splitext(caminho_salvo_temp)
+        
         if extensao_sugerida.lower() == '.zip':
-            with zipfile.ZipFile(caminho_salvo, 'r') as zip_ref:
+            with zipfile.ZipFile(caminho_salvo_temp, 'r') as zip_ref:
                 lista_arquivos = zip_ref.namelist()
                 nome_original_no_zip = lista_arquivos[0]
-                zip_ref.extract(nome_original_no_zip, pasta_relatorio)
+                zip_ref.extract(nome_original_no_zip, pasta_temp)
 
-            _, extensao = os.path.splitext(nome_original_no_zip)
-            caminho_extraido = os.path.join(pasta_relatorio, nome_original_no_zip)
-            try: os.remove(caminho_salvo)
+            caminho_extraido = os.path.join(pasta_temp, nome_original_no_zip)
+            try: os.remove(caminho_salvo_temp) # Limpa o zip
             except: pass
+            return caminho_extraido
         else:
-            extensao = extensao_sugerida
-            caminho_extraido = caminho_salvo
+            return caminho_salvo_temp
 
-        # Puxa o nome exato do dicionário
-        nome_base = NOMES_FINAIS.get(codigo, f"Relatorio_{codigo}")
-        caminho_padronizado = os.path.join(pasta_relatorio, f"{nome_base}{extensao}")
-        
-        if os.path.exists(caminho_padronizado):
-            os.remove(caminho_padronizado)
-        os.rename(caminho_extraido, caminho_padronizado)
-        return caminho_padronizado, extensao
-
-    def limpar_planilha(self, caminho, extensao, codigo):
+    # 🌟 A NOVA FUNÇÃO DE LIMPEZA DIRETA (O Fim do Problema do OneDrive)
+    def limpar_planilha_direto(self, caminho_temp, caminho_final_onedrive, codigo):
         try:
-            import gc
-            import time
-            
-            ext = extensao.lower()
-            
             linhas_pular = 4 if codigo in ["Fiscalizacao", "Notificacao"] else 3
 
-            if ext in ('.xlsx', '.xls'): 
-                with open(caminho, 'rb') as f:
+            # LÊ O ARQUIVO DIRETO DO BASTIDOR (Pasta Temp do Windows)
+            if caminho_temp.endswith(('.xlsx', '.xls')): 
+                with open(caminho_temp, 'rb') as f:
                     df = pd.read_excel(f, skiprows=linhas_pular)
-            elif ext == '.csv': 
-                with open(caminho, 'r', encoding='utf-8', errors='ignore') as f:
+            elif caminho_temp.endswith('.csv'): 
+                with open(caminho_temp, 'r', encoding='utf-8', errors='ignore') as f:
                     df = pd.read_csv(f, skiprows=linhas_pular, sep=';')
-            else: return
+            else: 
+                return
 
+            # Limpa as colunas e dados confidenciais
             colunas_presentes = [c for c in COLUNAS_REMOVER.get(codigo, []) if c in df.columns]
             if colunas_presentes:
                 df.drop(columns=colunas_presentes, inplace=True)
 
-            if ext in ('.xlsx', '.xls'):
-                caminho_novo = caminho
-                if ext == '.xls':
-                    caminho_novo = caminho[:-4] + '.xlsx'
-                
-                df.to_excel(caminho_novo, index=False)
-                
-                if caminho_novo != caminho:
-                    df = None 
-                    gc.collect() 
-                    
-                    for tentativa in range(10):
-                        try:
-                            if os.path.exists(caminho):
-                                os.remove(caminho)
-                            break 
-                        except:
-                            time.sleep(1) 
-            else: 
-                df.to_csv(caminho, index=False, sep=';')
+            # SALVA DIRETAMENTE NO ONEDRIVE, CRIANDO UM .XLSX DO ZERO
+            df.to_excel(caminho_final_onedrive, index=False)
+            
+            # Limpa a sujeira do bastidor (Apaga o XLS velho sem medo, pois não está na nuvem)
+            import gc
+            df = None 
+            gc.collect() 
+            if os.path.exists(caminho_temp):
+                try: os.remove(caminho_temp)
+                except: pass
                 
         except Exception as e_planilha:
             print(f"Aviso: Não foi possível limpar os dados da planilha do {codigo}: {e_planilha}")
