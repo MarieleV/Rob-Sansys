@@ -27,7 +27,7 @@ DEFAULT_H1 = {
 # Mapeamento exato dos nomes para o Power BI
 NOMES_FINAIS = {
     "075": "Rel-075",
-    "075_Web": "Rel-075-Web",  # Nome do arquivo final gerado para a versão Web
+    "075_Web": "Rel-075-Web",
     "786": "Rel-786",
     "468": "Rel-468",
     "579": "Rel-579",
