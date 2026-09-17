@@ -14,7 +14,7 @@ import subprocess
 
 ARQUIVO_CONFIG = "config.json"
 
-# 🌟 Adicionado o "075_Web" como um Relatório Virtual
+#  Adicionado o "075_Web" como um Relatório Virtual
 REPORTS = ["075", "075_Web", "786", "468", "579"]
 BACKLOGS = ["Fiscalizacao", "Notificacao"]
 TODOS_RELATORIOS = REPORTS + BACKLOGS
@@ -340,7 +340,7 @@ class AppAutomacao:
                 }
 
                 for codigo in lista_relatorios:
-                    # 🌟 O TRUQUE: Se ele pedir o 075_Web, o robô vai buscar e preencher no sistema como se fosse o 075 normal!
+                    #  O TRUQUE: Se ele pedir o 075_Web, o robô vai buscar e preencher no sistema como se fosse o 075 normal!
                     codigo_sistema = "075" if codigo == "075_Web" else codigo
 
                     self.root.after(0, lambda c=codigo: self.status_var.set(f"Acessando Gerencial: {c}..."))
@@ -391,7 +391,7 @@ class AppAutomacao:
                         botao_download.click()
                     download = download_info.value
 
-                    # 🌟 ROTEAMENTO DE PASTA: Salva na pasta 'Relatorio_web' se for o virtual
+                    #  ROTEAMENTO DE PASTA: Salva na pasta 'Relatorio_web' se for o virtual
                     nome_pasta = "Relatorio_web" if codigo == "075_Web" else f"Relatorio_{codigo}"
                     pasta_relatorio = os.path.join(pasta_destino, nome_pasta)
                     os.makedirs(pasta_relatorio, exist_ok=True)
@@ -613,7 +613,7 @@ class AppAutomacao:
             else: 
                 return
 
-            # 🌟 LÓGICA DE LIMPEZA DO "075_Web"
+            #  LÓGICA DE LIMPEZA DO "075_Web"
             if codigo == "075_Web":
                 colunas_para_juntar = [
                     "Ativ. Econômica - Residencial",
