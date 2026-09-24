@@ -11,7 +11,7 @@
     <img src="https://img.shields.io/badge/Tkinter-GUI-4B8BBE?style=for-the-badge&logo=python&logoColor=white" alt="Tkinter">
   </p>
 
-  <p><em>Uma solução corporativa completa com interface gráfic, agendamento autônomo e tratamento automático de dados.</em></p>
+  <p><em>Uma solução corporativa completa com interface gráfica, agendamento autônomo e tratamento automático de dados.</em></p>
 </div>
 
 <br>
