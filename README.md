@@ -21,7 +21,7 @@
   Este projeto é uma solução de <b>Automação Robótica de Processos (RPA)</b> desenvolvida em Python para interagir com sistemas web legados baseados em ExtJS (Sansys). Ele soluciona o gargalo de tarefas operacionais repetitivas, realizando extrações complexas em minutos de forma 100% invisível (Modo Headless).
 </p>
 <p>
-  O robô acessa o sistema, navega por menus dinâmicos burlando IDs voláteis através de técnicas de leitura de atributos customizados (<code>cfgname</code>) e manipulação de teclado. Após o download, ele descompacta arquivos, utiliza <b>Pandas</b> para limpar cabeçalhos inúteis e remover colunas com dados sensíveis (adequação LGPD), e salva os relatórios padronizados diretamente em um diretório departamental mapeado em rede. Tudo isso orquestrado por uma <b>Interface Gráfica (GUI) em Abas</b> com agendamento diário.
+  O robô acessa o sistema, navega por menus dinâmicos burlando IDs voláteis através de técnicas de leitura de atributos customizados (<code>cfgname</code>) e manipulação de teclado. Após o download, ele descompacta arquivos, utiliza <b>Pandas</b> para limpar cabeçalhos inúteis e remover colunas com dados sensíveis (adequação LGPD), e salva os relatórios padronizados diretamente em um diretório departamental mapeado em rede. Tudo isso orquestrado por uma <b>Interface Gráfica (GUI) em Abas</b> com agendamento diário
 </p>
 
 <br>
