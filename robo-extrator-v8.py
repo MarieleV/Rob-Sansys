@@ -51,9 +51,6 @@ COLUNAS_REMOVER = {
     ],
 }
 
-# Tempo máximo de espera pelo processamento do relatório no servidor (ms).
-# Reduza este valor temporariamente (ex: 90000 = 1,5 min) se quiser diagnosticar
-# travamentos mais rápido durante testes.
 TIMEOUT_PROCESSAMENTO_MS = 1200000
 
 
