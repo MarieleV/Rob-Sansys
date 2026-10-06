@@ -14,11 +14,10 @@ import subprocess
 
 ARQUIVO_CONFIG = "config.json"
 
-# Log e screenshots de erro ficam na pasta do usuário (funciona com --noconsole)
 PASTA_LOG = os.path.expanduser("~")
 ARQUIVO_LOG = os.path.join(PASTA_LOG, "robo_extrator.log")
 
-#  relatório "992" adicionado aos Gerenciais
+
 REPORTS = ["075", "468", "579", "679", "786", "918", "939", "992"]
 CAJ_WEB = ["075_Web", "989_StatusCliente", "989_Encerrado"]
 BACKLOGS = ["Fiscalizacao", "Notificacao"]
@@ -58,12 +57,8 @@ COLUNAS_REMOVER = {
     ],
 }
 
-# Tempo máximo de espera pelo processamento do relatório no servidor (ms).
-# Reduza este valor temporariamente (ex: 90000 = 1,5 min) se quiser diagnosticar
-# travamentos mais rápido durante testes.
 TIMEOUT_PROCESSAMENTO_MS = 1200000
 
-# Texto que aparece na janela flutuante quando o relatório termina de ser gerado.
 TEXTO_DOWNLOAD_PRONTO = "Você já pode fazer o download"
 
 
