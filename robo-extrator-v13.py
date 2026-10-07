@@ -837,7 +837,6 @@ class AppAutomacao:
                                 campo_data_fim = page.get_by_role("textbox", name="Período Solicitação Final:")
                                 self.preencher_campo_robusto(page, campo_data_fim, data_hoje)
 
-                                # Novo preenchimento específico do campo Serviço (Ex: 3952 e 3957 pro Caça Fralde)
                                 if config["servico"]:
                                     try:
                                         campo_servico = page.locator("div.x-form-item").filter(has_text="Serviço:").filter(has_not=page.locator("text=Situação")).locator("input").first
