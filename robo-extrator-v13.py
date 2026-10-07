@@ -842,7 +842,6 @@ class AppAutomacao:
                                         campo_servico = page.locator("div.x-form-item").filter(has_text="Serviço:").filter(has_not=page.locator("text=Situação")).locator("input").first
                                         self.preencher_combo_backlog(page, campo_servico, config["servico"], f"campo 'Serviço' ({config['servico']})")
                                     except Exception:
-                                        # Fallback genérico pelo código cfgname se a label mudar
                                         campo_servico = page.locator('input[cfgname="relOPE0002.relatorio.opeServico"]')
                                         self.preencher_combo_backlog(page, campo_servico, config["servico"], f"campo 'Serviço' ({config['servico']})")
 
