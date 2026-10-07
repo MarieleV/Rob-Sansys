@@ -909,7 +909,6 @@ class AppAutomacao:
                         nome_base_final = NOMES_FINAIS.get(tipo, f"Backlog_{tipo}")
                         caminho_final_onedrive = os.path.join(pasta_relatorio, f"{nome_base_final}.xlsx")
 
-                        # Juntar tudo em 1 excel só
                         self.limpar_e_consolidar_backlogs(arquivos_temp_baixados, caminho_final_onedrive, tipo)
 
                         # Substituído o page.wait_for_timeout(2000) que causava o erro por um time.sleep(2)
