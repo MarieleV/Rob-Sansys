@@ -896,7 +896,6 @@ class AppAutomacao:
                                     try:
                                         context.close()
                                     except: pass
-                        # Fim do loop de multiplas configurações
 
                         etapa_atual = "Limpando e salvando a planilha final"
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Limpando o Backlog {t}..."))
