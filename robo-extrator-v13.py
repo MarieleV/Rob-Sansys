@@ -599,7 +599,7 @@ class AppAutomacao:
 
         try:
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(channel="msedge", headless=False)
+                browser = playwright.chromium.launch(channel="msedge", headless=True)
 
                 datas = {
                     "data_completa": datetime.now().strftime("%d%m%Y"),
@@ -752,29 +752,17 @@ class AppAutomacao:
 
         return resultados
 
-    # --------------------------------------------------------- Automação Backlogs (NOVA LÓGICA DE CONSOLIDAÇÃO)
+    # --------------------------------------------------------- Automação Backlogs (NOVA LÓGICA DE CONSOLIDAÇÃO CORRIGIDA)
     def automacao_backlogs(self, usuario, senha, pasta_destino, lista_backlogs):
         resultados = []
 
         try:
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(channel="msedge", headless=False)
+                browser = playwright.chromium.launch(channel="msedge", headless=True)
 
                 for tipo in lista_backlogs:
-                    etapa_atual = "Abrindo navegador/contexto"
-                    context = None
-                    page = None
                     try:
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Extraindo Backlog: {t}..."))
-
-                        context = browser.new_context(viewport={'width': 1920, 'height': 1080}, locale='pt-BR')
-                        page = context.new_page()
-
-                        etapa_atual = "Login no sistema"
-                        self.fazer_login(page, usuario, senha)
-
-                        etapa_atual = "Validando login"
-                        self.validar_login(page)
 
                         # Define a lista de configurações a rodar para esse Backlog
                         if tipo == "CacaFralde":
@@ -788,111 +776,130 @@ class AppAutomacao:
                             configs = [{"servico": None, "situacoes": ["Pendente", "Postergada", "Programado"], "setor": "CIA - CFC Notificação"}]
 
                         arquivos_temp_baixados = []
+                        etapa_atual = "Iniciando ciclo de extração"
 
-                        # Roda os filtros/downloads N vezes conforme o tipo de Backlog pede (o CaçaFralde roda 2 vezes)
+                        # Roda os filtros/downloads criando um contexto e login limpos para cada configuração
                         for idx, config in enumerate(configs):
-                            if idx > 0:
-                                # Se for a segunda passada, volta pro inicio pra limpar tudo certinho
-                                page.goto("https://aguasdejoinville.com.br/sansys/index.html#/")
+                            context = None
+                            page = None
+                            try:
+                                etapa_atual = f"Abrindo navegador/contexto (Parte {idx+1})"
+                                context = browser.new_context(viewport={'width': 1920, 'height': 1080}, locale='pt-BR')
+                                page = context.new_page()
+
+                                etapa_atual = f"Login no sistema (Parte {idx+1})"
+                                self.fazer_login(page, usuario, senha)
+
+                                etapa_atual = f"Validando login (Parte {idx+1})"
+                                self.validar_login(page)
+
+                                etapa_atual = f"Abrindo menu Operacional > Serviços > Relatórios (Parte {idx+1})"
+                                self.abrir_menu_lateral(page)
+
+                                self.clicar_visivel(page.get_by_text("Operacional", exact=True), descricao="menu 'Operacional'")
+                                page.wait_for_timeout(1000)
+                                self.clicar_visivel(page.get_by_text("Serviços", exact=True), descricao="menu 'Serviços'")
+                                page.wait_for_timeout(1000)
+                                self.clicar_visivel(page.get_by_text("Relatórios", exact=True), descricao="menu 'Relatórios'")
+                                page.wait_for_timeout(1000)
+                                self.clicar_visivel(page.locator("a").filter(has_text="OPE0002"), descricao="link 'OPE0002'")
+                                page.wait_for_timeout(6000)
+
+                                etapa_atual = f"Preenchendo filtros do backlog ({tipo} - Parte {idx+1})"
+
+                                try:
+                                    self.preencher_combo_backlog(
+                                        page,
+                                        page.locator(".x-form-item").filter(has_text="Serviços de:").locator("input"),
+                                        "Unidade Comercial",
+                                        "campo 'Serviços de'"
+                                    )
+                                except Exception: pass
+
+                                try:
+                                    self.preencher_combo_backlog(
+                                        page,
+                                        page.locator('input[cfgname="relOPE0002.relatorio.tpPesquisa"]'),
+                                        "Empresa",
+                                        "campo 'Pesquisar Por'"
+                                    )
+                                except Exception: pass
+
+                                try:
+                                    page.get_by_text("01 - CIA AGUAS DE JOINVILLE").dblclick(timeout=2000)
+                                    page.wait_for_timeout(500)
+                                except Exception:
+                                    self.log(f"[{tipo}] Empresa '01 - CIA AGUAS DE JOINVILLE' não clicada (opcional).")
+
+                                # As datas de solicitação de todos os Backlogs agora pegam o inicio do ano até hoje
+                                campo_data_ini = page.get_by_role("textbox", name="Período Solicitação Inicial:")
+                                self.preencher_campo_robusto(page, campo_data_ini, datetime.now().strftime("0101%Y"))
+
+                                data_hoje = datetime.now().strftime("%d%m%Y")
+                                campo_data_fim = page.get_by_role("textbox", name="Período Solicitação Final:")
+                                self.preencher_campo_robusto(page, campo_data_fim, data_hoje)
+
+                                # Novo preenchimento específico do campo Serviço (Ex: 3952 e 3957 pro Caça Fralde)
+                                if config["servico"]:
+                                    try:
+                                        campo_servico = page.locator("div.x-form-item").filter(has_text="Serviço:").filter(has_not=page.locator("text=Situação")).locator("input").first
+                                        self.preencher_combo_backlog(page, campo_servico, config["servico"], f"campo 'Serviço' ({config['servico']})")
+                                    except Exception:
+                                        # Fallback genérico pelo código cfgname se a label mudar
+                                        campo_servico = page.locator('input[cfgname="relOPE0002.relatorio.opeServico"]')
+                                        self.preencher_combo_backlog(page, campo_servico, config["servico"], f"campo 'Serviço' ({config['servico']})")
+
+                                for sit in config["situacoes"]:
+                                    try:
+                                        page.get_by_text(sit, exact=True).dblclick(timeout=1000)
+                                    except Exception:
+                                        self.log(f"[{tipo}] Situação '{sit}' não clicada (pode já estar selecionada).")
+
+                                if config["setor"]:
+                                    self.preencher_combo_backlog(
+                                        page,
+                                        page.locator('input[cfgname="relOPE0002.relatorio.opeSetorOperacional"]'),
+                                        config["setor"],
+                                        "campo 'Setor Operacional'"
+                                    )
+
+                                self.preencher_combo_backlog(
+                                    page,
+                                    page.locator('input[cfgname="relOPE0002.relatorio.relFormatoRelatorio"]'),
+                                    "EXCEL",
+                                    "campo 'Formato do Relatório'"
+                                )
+
                                 page.wait_for_timeout(2000)
 
-                            etapa_atual = f"Abrindo menu Operacional > Serviços > Relatórios (Parte {idx+1})"
-                            self.abrir_menu_lateral(page)
+                                etapa_atual = f"Confirmando e baixando o arquivo (Parte {idx+1})"
+                                with page.expect_download(timeout=300000) as download_info:
+                                    self.clicar_visivel(page.get_by_role("button", name="Gerar"), descricao="botão Gerar")
 
-                            self.clicar_visivel(page.get_by_text("Operacional", exact=True), descricao="menu 'Operacional'")
-                            page.wait_for_timeout(1000)
-                            self.clicar_visivel(page.get_by_text("Serviços", exact=True), descricao="menu 'Serviços'")
-                            page.wait_for_timeout(1000)
-                            self.clicar_visivel(page.get_by_text("Relatórios", exact=True), descricao="menu 'Relatórios'")
-                            page.wait_for_timeout(1000)
-                            self.clicar_visivel(page.locator("a").filter(has_text="OPE0002"), descricao="link 'OPE0002'")
-                            page.wait_for_timeout(6000)
+                                download = download_info.value
 
-                            etapa_atual = f"Preenchendo filtros do backlog ({tipo} - Parte {idx+1})"
+                                import tempfile
+                                pasta_temp = tempfile.gettempdir()
+                                nome_base = NOMES_FINAIS.get(tipo, f"Backlog_{tipo}")
+                                # Salva cada extração num arquivo temporário diferente (ex: Backlog_CacaFralde_bruto_0.xls)
+                                caminho_temp_xls = os.path.join(pasta_temp, f"{nome_base}_bruto_{idx}.xls")
 
-                            try:
-                                self.preencher_combo_backlog(
-                                    page,
-                                    page.locator(".x-form-item").filter(has_text="Serviços de:").locator("input"),
-                                    "Unidade Comercial",
-                                    "campo 'Serviços de'"
-                                )
-                            except Exception: pass
+                                if os.path.exists(caminho_temp_xls):
+                                    try: os.remove(caminho_temp_xls)
+                                    except: pass
 
-                            try:
-                                self.preencher_combo_backlog(
-                                    page,
-                                    page.locator('input[cfgname="relOPE0002.relatorio.tpPesquisa"]'),
-                                    "Empresa",
-                                    "campo 'Pesquisar Por'"
-                                )
-                            except Exception: pass
-
-                            try:
-                                page.get_by_text("01 - CIA AGUAS DE JOINVILLE").dblclick(timeout=2000)
-                                page.wait_for_timeout(500)
-                            except Exception:
-                                self.log(f"[{tipo}] Empresa '01 - CIA AGUAS DE JOINVILLE' não clicada (opcional).")
-
-                            # As datas de solicitação de todos os Backlogs agora pegam o inicio do ano até hoje
-                            campo_data_ini = page.get_by_role("textbox", name="Período Solicitação Inicial:")
-                            self.preencher_campo_robusto(page, campo_data_ini, datetime.now().strftime("0101%Y"))
-
-                            data_hoje = datetime.now().strftime("%d%m%Y")
-                            campo_data_fim = page.get_by_role("textbox", name="Período Solicitação Final:")
-                            self.preencher_campo_robusto(page, campo_data_fim, data_hoje)
-
-                            # Novo preenchimento específico do campo Serviço (Ex: 3952 e 3957 pro Caça Fralde)
-                            if config["servico"]:
-                                try:
-                                    campo_servico = page.locator("div.x-form-item").filter(has_text="Serviço:").filter(has_not=page.locator("text=Situação")).locator("input").first
-                                    self.preencher_combo_backlog(page, campo_servico, config["servico"], f"campo 'Serviço' ({config['servico']})")
-                                except Exception:
-                                    # Fallback genérico pelo código cfgname se a label mudar
-                                    campo_servico = page.locator('input[cfgname="relOPE0002.relatorio.opeServico"]')
-                                    self.preencher_combo_backlog(page, campo_servico, config["servico"], f"campo 'Serviço' ({config['servico']})")
-
-                            for sit in config["situacoes"]:
-                                try:
-                                    page.get_by_text(sit, exact=True).dblclick(timeout=1000)
-                                except Exception:
-                                    self.log(f"[{tipo}] Situação '{sit}' não clicada (pode já estar selecionada).")
-
-                            if config["setor"]:
-                                self.preencher_combo_backlog(
-                                    page,
-                                    page.locator('input[cfgname="relOPE0002.relatorio.opeSetorOperacional"]'),
-                                    config["setor"],
-                                    "campo 'Setor Operacional'"
-                                )
-
-                            self.preencher_combo_backlog(
-                                page,
-                                page.locator('input[cfgname="relOPE0002.relatorio.relFormatoRelatorio"]'),
-                                "EXCEL",
-                                "campo 'Formato do Relatório'"
-                            )
-
-                            page.wait_for_timeout(2000)
-
-                            etapa_atual = f"Confirmando e baixando o arquivo (Parte {idx+1})"
-                            with page.expect_download(timeout=300000) as download_info:
-                                self.clicar_visivel(page.get_by_role("button", name="Confirmar"), descricao="botão Confirmar")
-
-                            download = download_info.value
-
-                            import tempfile
-                            pasta_temp = tempfile.gettempdir()
-                            nome_base = NOMES_FINAIS.get(tipo, f"Backlog_{tipo}")
-                            # Salva cada extração num arquivo temporário diferente (ex: Backlog_CacaFralde_bruto_0.xls)
-                            caminho_temp_xls = os.path.join(pasta_temp, f"{nome_base}_bruto_{idx}.xls")
-
-                            if os.path.exists(caminho_temp_xls):
-                                try: os.remove(caminho_temp_xls)
-                                except: pass
-
-                            download.save_as(caminho_temp_xls)
-                            arquivos_temp_baixados.append(caminho_temp_xls)
+                                download.save_as(caminho_temp_xls)
+                                arquivos_temp_baixados.append(caminho_temp_xls)
+                                
+                            except Exception as e_inner:
+                                self.salvar_screenshot_erro(page, f"{tipo}_parte{idx+1}")
+                                raise e_inner # Repassa o erro para o tratamento externo encerrar esse backlog
+                                
+                            finally:
+                                if context is not None:
+                                    try:
+                                        context.close()
+                                    except: pass
                         # Fim do loop de multiplas configurações
 
                         etapa_atual = "Limpando e salvando a planilha final"
@@ -911,14 +918,14 @@ class AppAutomacao:
                         # Juntar tudo em 1 excel só
                         self.limpar_e_consolidar_backlogs(arquivos_temp_baixados, caminho_final_onedrive, tipo)
 
-                        page.wait_for_timeout(2000)
+                        # Substituído o page.wait_for_timeout(2000) que causava o erro por um time.sleep(2)
+                        time.sleep(2)
 
                         resultados.append((tipo, True, "", ""))
 
                     except Exception as e:
                         mensagem = str(e).splitlines()[0] if str(e) else "Erro desconhecido"
                         self.log(f"Falha ao extrair backlog {tipo} na etapa '{etapa_atual}': {e}")
-                        self.salvar_screenshot_erro(page, tipo)
                         resultados.append((tipo, False, etapa_atual, mensagem))
                         self.root.after(
                             0,
@@ -926,11 +933,6 @@ class AppAutomacao:
                                 f"Falha em {t} ({et}). Seguindo para o próximo..."
                             )
                         )
-                    finally:
-                        if context is not None:
-                            try:
-                                context.close()
-                            except: pass
 
                 browser.close()
 
