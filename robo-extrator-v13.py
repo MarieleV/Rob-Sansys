@@ -900,7 +900,6 @@ class AppAutomacao:
                         etapa_atual = "Limpando e salvando a planilha final"
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Limpando o Backlog {t}..."))
 
-                        # Define a pasta onde será salvo o arquivo final (Relatorio_BacklogCacaFralde ou Relatorio_Fiscalizacao...)
                         if tipo == "CacaFralde":
                             pasta_relatorio = os.path.join(pasta_destino, "Relatorio_BacklogCacaFralde")
                         else:
