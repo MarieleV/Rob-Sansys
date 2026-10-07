@@ -620,7 +620,7 @@ class AppAutomacao:
                         elif codigo.startswith("989"):
                             codigo_sistema = "989"
                         elif codigo == "344v3setor":
-                            codigo_sistema = "344 v3 Setor"
+                            codigo_sistema = "344 v3 setor"
                         else:
                             codigo_sistema = codigo
 
