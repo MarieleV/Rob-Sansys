@@ -750,7 +750,7 @@ class AppAutomacao:
 
         return resultados
 
-    # --------------------------------------------------------- Automação Backlogs (NOVA LÓGICA DE CONSOLIDAÇÃO CORRIGIDA)
+    # --------------------------------------------------------- Automação Backlogs
     def automacao_backlogs(self, usuario, senha, pasta_destino, lista_backlogs):
         resultados = []
 
