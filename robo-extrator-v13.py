@@ -64,7 +64,6 @@ COLUNAS_REMOVER = {
 # Tempo máximo de espera pelo processamento do relatório no servidor (ms).
 TIMEOUT_PROCESSAMENTO_MS = 1200000
 
-# Texto que aparece na janela flutuante quando o relatório termina de ser gerado.
 TEXTO_DOWNLOAD_PRONTO = "Você já pode fazer o download"
 
 
