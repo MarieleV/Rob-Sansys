@@ -12,6 +12,8 @@ from playwright.sync_api import sync_playwright
 import io
 import subprocess
 
+
+# remover coluna MORADOR do relatório 579
 ARQUIVO_CONFIG = "config.json"
 
 # Log e screenshots de erro ficam na pasta do usuário (funciona com --noconsole)
