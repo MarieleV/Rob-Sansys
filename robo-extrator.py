@@ -61,6 +61,8 @@ COLUNAS_REMOVER = {
         "Telefone Residencial Morador", "Telefone Comercial Morador",
         "Telefone Celular Morador", "Email Morador"
     ],
+    "344v3setor": ["SOLICITANTE", "CONTATO_DO_SOLICITANTE"],
+    "786": ["SOLICITANTE"],
 }
 
 # Tempo máximo de espera pelo processamento do relatório no servidor (ms).
@@ -1070,9 +1072,16 @@ class AppAutomacao:
                             df_hist = pd.read_csv(caminho_hist, sep=';', encoding='utf-8', encoding_errors='ignore', skiprows=skip_hist)
                         else:
                             df_hist = pd.read_excel(caminho_hist, skiprows=skip_hist)
+
+                        # Remove colunas indesejadas do histórico (se existirem)
+                        df_hist.drop(columns=COLUNAS_REMOVER.get(codigo, []), errors="ignore", inplace=True)
+
                         lista_dfs.append(df_hist)
                     except Exception as e:
                         self.log(f"Ignorando leitura do arquivo histórico {arquivo}: {e}")
+
+            # Remove colunas indesejadas do arquivo novo (se existirem)
+            df.drop(columns=COLUNAS_REMOVER.get(codigo, []), errors="ignore", inplace=True)
 
             # Adiciona o arquivo novo extraído hoje à lista de consolidação
             lista_dfs.append(df)
