@@ -60,7 +60,8 @@
   <br>
   
   ```text
-  ├── robo-extrator-v4.py   # Script monolítico: UI (Tkinter), Agendador, RPA e Tratamento de Dados
+  ├── robo-extrator.py      # Script monolítico: UI (Tkinter), Agendador, RPA e Tratamento de Dados
+  ├── DataCleaning.py       # Script monolítico: apenas para Tratamento de Dados
   ├── config.json           # Arquivo gerado automaticamente para cache de credenciais e horários
   ├── requirements.txt      # Mapeamento de dependências (Playwright, Pandas, Schedule, Openpyxl)
   └── README.md             # Documentação do projeto
