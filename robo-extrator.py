@@ -13,7 +13,6 @@ import io
 import subprocess
 
 
-# remover coluna MORADOR do relatório 579
 ARQUIVO_CONFIG = "config.json"
 
 # Log e screenshots de erro ficam na pasta do usuário (funciona com --noconsole)
@@ -65,6 +64,7 @@ COLUNAS_REMOVER = {
     ],
     "344v3setor": ["SOLICITANTE", "CONTATO_DO_SOLICITANTE"],
     "786": ["SOLICITANTE"],
+    "579": ["MORADOR"],
 }
 
 # Tempo máximo de espera pelo processamento do relatório no servidor (ms).
@@ -1092,7 +1092,9 @@ class AppAutomacao:
             df.drop_duplicates(inplace=True)
 
         else:
-            colunas_presentes = [c for c in COLUNAS_REMOVER.get(codigo, []) if c in df.columns]
+            # Remoção de colunas ignorando maiúsculas/minúsculas e espaços nas pontas
+            remover = {c.strip().lower() for c in COLUNAS_REMOVER.get(codigo, [])}
+            colunas_presentes = [c for c in df.columns if str(c).strip().lower() in remover]
             if colunas_presentes:
                 df.drop(columns=colunas_presentes, inplace=True)
 
