@@ -3,6 +3,7 @@ import json
 import time
 import zipfile
 import threading
+import unicodedata
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import schedule
@@ -21,15 +22,15 @@ ARQUIVO_LOG = os.path.join(PASTA_LOG, "robo_extrator.log")
 
 # Relatórios gerenciais
 REPORTS = ["034", "075", "468", "579", "679", "786", "834", "918", "938", "939", "992", "344v3setor"]
-CAJ_WEB = ["075_Web", "989_StatusCliente", "989_Encerrado"]
-BACKLOGS = ["Fiscalizacao", "Notificacao", "CacaFralde"]
+CAJ_WEB = ["075_Web", "989_StatusCliente"]
+BACKLOGS = ["Fiscalizacao", "Notificacao", "CacaFralde", "10103"]
 TODOS_RELATORIOS = REPORTS + CAJ_WEB + BACKLOGS
 
 DEFAULT_H1 = {
     "034": "07:55", "075": "08:00", "468": "08:15", "579": "08:30", "679": "08:45", "786": "08:48", "834": "08:50",
     "918": "08:52", "938": "08:53", "939": "08:54", "992": "08:56", "344v3setor": "08:58",
-    "075_Web": "08:55", "989_StatusCliente": "09:00", "989_Encerrado": "09:05",
-    "Fiscalizacao": "09:10", "Notificacao": "09:15", "CacaFralde": "09:20"
+    "075_Web": "08:55", "989_StatusCliente": "09:00",
+    "Fiscalizacao": "09:10", "Notificacao": "09:15", "CacaFralde": "09:20", "10103": "09:25"
 }
 
 NOMES_FINAIS = {
@@ -47,10 +48,10 @@ NOMES_FINAIS = {
     "939": "Rel-939",
     "992": "Rel-992",
     "989_StatusCliente": "Rel-989-StatusCliente",
-    "989_Encerrado": "Rel-989-Encerrado",
     "Fiscalizacao": "Backlog-Fisc",
     "Notificacao": "Backlog-Not",
-    "CacaFralde": "Backlog-CacaFralde"
+    "CacaFralde": "Backlog-CacaFralde",
+    "10103": "Rel-10103"
 }
 
 COLUNAS_REMOVER = {
@@ -170,11 +171,11 @@ class AppAutomacao:
 
         self.aba_caj_web = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.aba_caj_web, text="CAJ Web")
-        self.montar_aba_relatorios(self.aba_caj_web, CAJ_WEB, 3)
+        self.montar_aba_relatorios(self.aba_caj_web, CAJ_WEB, 2)
 
         self.aba_backlogs = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.aba_backlogs, text="Backlogs")
-        self.montar_aba_relatorios(self.aba_backlogs, BACKLOGS, 2)
+        self.montar_aba_relatorios(self.aba_backlogs, BACKLOGS, 4)
 
         frame_botoes = ttk.Frame(self.main_frame)
         frame_botoes.pack(fill='x', pady=10)
@@ -525,7 +526,8 @@ class AppAutomacao:
             page.wait_for_timeout(3000)
 
         elif codigo == "786":
-            self.preencher_campo_data(page, 0, "01012024")
+            # Apenas o ano atual; os anos anteriores ficam na pasta Historico
+            self.preencher_campo_data(page, 0, datas["primeiro_dia_ano"])
             self.preencher_campo_data(page, 1, datas["data_completa"])
 
         elif codigo == "468":
@@ -567,15 +569,14 @@ class AppAutomacao:
             self.preencher_campo_data(page, 1, "01012024")
             self.preencher_campo_data(page, 2, datas["data_completa"])
 
-        elif codigo in ["989_StatusCliente", "989_Encerrado"]:
+        elif codigo == "989_StatusCliente":
             codigos_str = "14931,14903,14901,14654,14633,14631,14605,14604,14603,14601,14271,14261,14254,14233,14231,14213,14211,14203,14201"
             self.preencher_campo_data(page, 0, codigos_str, delay=10)
             self.preencher_campo_data(page, 1, "01012025")
             self.preencher_campo_data(page, 2, datas["data_completa"])
             self.preencher_campo_data(page, 3, "S")
 
-            status = "A" if codigo == "989_StatusCliente" else "E"
-            self.preencher_campo_data(page, 4, status)
+            self.preencher_campo_data(page, 4, "A")
 
     # --------------------------------------------------------- DOWNLOAD 
     def aguardar_e_baixar(self, page):
@@ -705,13 +706,17 @@ class AppAutomacao:
 
                         etapa_atual = "Salvando arquivo baixado"
                         if codigo == "075_Web":
-                            nome_pasta = "Relatorio_web"
+                            nome_pasta = "Relatorio_075_Notificacao"
                         elif codigo.startswith("989"):
                             nome_pasta = "Relatorio_989"
                         else:
                             nome_pasta = f"Relatorio_{codigo}"
 
-                        pasta_relatorio = os.path.join(pasta_destino, nome_pasta)
+                        # Relatórios CAJ Web ficam dentro da subpasta "Notificação"
+                        if codigo in CAJ_WEB:
+                            pasta_relatorio = os.path.join(pasta_destino, "Notificação", nome_pasta)
+                        else:
+                            pasta_relatorio = os.path.join(pasta_destino, nome_pasta)
                         os.makedirs(pasta_relatorio, exist_ok=True)
 
                         import tempfile
@@ -775,6 +780,7 @@ class AppAutomacao:
                 browser = playwright.chromium.launch(channel="msedge", headless=True)
 
                 for tipo in lista_backlogs:
+                    etapa_atual = "Iniciando ciclo de extração"
                     try:
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Extraindo Backlog: {t}..."))
 
@@ -786,11 +792,14 @@ class AppAutomacao:
                             ]
                         elif tipo == "Fiscalizacao":
                             configs = [{"servico": None, "situacoes": ["Para Reprogramar", "Pendente", "Postergada", "Programado"], "setor": "CIA - CFC"}]
+                        elif tipo == "10103":
+                            # "Encerrado - Executado" fica em Opções por padrão; o duplo clique
+                            # (exact=True, para não pegar "Encerrado - Cancelado") o move para Selecionados.
+                            configs = [{"servico": None, "situacoes": ["Encerrado - Executado"], "setor": None}]
                         else: # Notificacao
                             configs = [{"servico": None, "situacoes": ["Pendente", "Postergada", "Programado"], "setor": "CIA - CFC Notificação"}]
 
                         arquivos_temp_baixados = []
-                        etapa_atual = "Iniciando ciclo de extração"
 
                         # Roda os filtros/downloads criando um contexto e login limpos para cada configuração
                         for idx, config in enumerate(configs):
@@ -919,7 +928,7 @@ class AppAutomacao:
                         etapa_atual = "Limpando e salvando a planilha final"
                         self.root.after(0, lambda t=tipo: self.status_var.set(f"Limpando o Backlog {t}..."))
 
-                        # Define a pasta onde será salvo o arquivo final (Relatorio_BacklogCacaFralde ou Relatorio_Fiscalizacao...)
+                        # Define a pasta onde será salvo o arquivo final (Relatorio_BacklogCacaFralde, Relatorio_Fiscalizacao, Relatorio_10103...)
                         if tipo == "CacaFralde":
                             pasta_relatorio = os.path.join(pasta_destino, "Relatorio_BacklogCacaFralde")
                         else:
@@ -932,7 +941,6 @@ class AppAutomacao:
                         # Juntar tudo em 1 excel só
                         self.limpar_e_consolidar_backlogs(arquivos_temp_baixados, caminho_final_onedrive, tipo)
 
-                        # Substituído o page.wait_for_timeout(2000) que causava o erro por um time.sleep(2)
                         time.sleep(2)
 
                         resultados.append((tipo, True, "", ""))
@@ -977,7 +985,7 @@ class AppAutomacao:
         else:
             return caminho_salvo_temp
 
-    # Nova função que le a lista de arquivos descarregados, ignora as 4 linhas e une num só
+    # Função que lê a lista de arquivos descarregados, ignora as 4 linhas e une num só
     def limpar_e_consolidar_backlogs(self, arquivos_temp, caminho_final, tipo):
         linhas_pular = 4
         lista_dfs = []
@@ -998,6 +1006,23 @@ class AppAutomacao:
             raise Exception("Nenhum arquivo processado para ser consolidado.")
 
         df_final = pd.concat(lista_dfs, ignore_index=True)
+
+        # Relatório 10103: manter apenas Matrícula, Protocolo e Data da Execução
+        if tipo == "10103":
+            def _norm(txt):
+                txt = unicodedata.normalize("NFKD", str(txt)).encode("ascii", "ignore").decode()
+                return txt.strip().lower()
+
+            manter = []
+            for c in df_final.columns:
+                n = _norm(c)
+                if n == "matricula" or n == "protocolo" or ("data" in n and "execu" in n):
+                    manter.append(c)
+
+            if not manter:
+                raise Exception(f"Colunas esperadas não encontradas. Colunas do arquivo: {list(df_final.columns)[:15]}")
+            df_final = df_final[manter]
+
         df_final.drop_duplicates(inplace=True)
 
         df_final.to_excel(caminho_final, index=False)
@@ -1056,7 +1081,7 @@ class AppAutomacao:
             colunas_finais = [c for c in colunas_para_manter if c in df.columns]
             df = df[colunas_finais]
 
-        elif codigo in ["918", "938", "939", "344v3setor"]:
+        elif codigo in ["786", "918", "938", "939", "344v3setor"]:
             pasta_relatorio = os.path.dirname(caminho_final_onedrive)
             pasta_historico = os.path.join(pasta_relatorio, "Historico")
             os.makedirs(pasta_historico, exist_ok=True)
@@ -1067,8 +1092,8 @@ class AppAutomacao:
                 if arquivo.endswith(('.xlsx', '.xls', '.csv')):
                     caminho_hist = os.path.join(pasta_historico, arquivo)
                     try:
-                        # O histórico do 938 e 344v3setor já estão limpos, logo não pula linhas.
-                        skip_hist = None if codigo in ["938", "344v3setor"] else linhas_pular
+                        # O histórico do 786, 938 e 344v3setor já estão limpos, logo não pula linhas.
+                        skip_hist = None if codigo in ["786", "938", "344v3setor"] else linhas_pular
 
                         if arquivo.endswith('.csv'):
                             df_hist = pd.read_csv(caminho_hist, sep=';', encoding='utf-8', encoding_errors='ignore', skiprows=skip_hist)
