@@ -377,7 +377,7 @@ class AppAutomacao:
             if mes_virou:
                 return "Adicionar no Histórico o consolidado do Mês passado"
 
-        elif codigo == "939":
+        elif codigo in ["939", "10103"]:
             semestre_atual = 1 if hoje.month <= 6 else 2
             semestre_ant = (1 if data_ant.month <= 6 else 2) if data_ant else None
 
@@ -846,7 +846,7 @@ class AppAutomacao:
                         elif tipo == "Fiscalizacao":
                             configs = [{"servico": None, "situacoes": ["Para Reprogramar", "Pendente", "Postergada", "Programado"], "setor": "CIA - CFC"}]
                         elif tipo == "10103":
-                            configs = [{"servico": None, "situacoes": ["Encerrado - Executado"], "setor": None}]
+                            configs = [{"servico": "10103", "situacoes": ["Encerrado - Executado"], "setor": None}]
                         else:  # Notificacao
                             configs = [{"servico": None, "situacoes": ["Pendente", "Postergada", "Programado"], "setor": "CIA - CFC Notificação"}]
 
@@ -904,8 +904,12 @@ class AppAutomacao:
                                 except Exception:
                                     self.log(f"[{tipo}] Empresa '01 - CIA AGUAS DE JOINVILLE' não clicada (opcional).")
 
+                                # Data inicial específica para 10103 (01/07/2026) e padrão para os demais
                                 campo_data_ini = page.get_by_role("textbox", name="Período Solicitação Inicial:")
-                                self.preencher_campo_robusto(page, campo_data_ini, datetime.now().strftime("0101%Y"))
+                                if tipo == "10103":
+                                    self.preencher_campo_robusto(page, campo_data_ini, "01072026")
+                                else:
+                                    self.preencher_campo_robusto(page, campo_data_ini, datetime.now().strftime("0101%Y"))
 
                                 data_hoje = datetime.now().strftime("%d%m%Y")
                                 campo_data_fim = page.get_by_role("textbox", name="Período Solicitação Final:")
@@ -1042,6 +1046,24 @@ class AppAutomacao:
                 raise Exception(f"Formato de arquivo não suportado: {os.path.basename(arquivo)}")
 
             lista_dfs.append(df)
+
+        # Leitura da subpasta Historico para o Relatorio_10103
+        if tipo == "10103":
+            pasta_relatorio = os.path.dirname(caminho_final)
+            pasta_historico = os.path.join(pasta_relatorio, "Historico")
+            os.makedirs(pasta_historico, exist_ok=True)
+
+            for arquivo in os.listdir(pasta_historico):
+                if arquivo.endswith(('.xlsx', '.xls', '.csv')):
+                    caminho_hist = os.path.join(pasta_historico, arquivo)
+                    try:
+                        if arquivo.endswith('.csv'):
+                            df_hist = pd.read_csv(caminho_hist, sep=';', encoding='utf-8', errors='ignore')
+                        else:
+                            df_hist = pd.read_excel(caminho_hist)
+                        lista_dfs.append(df_hist)
+                    except Exception as e:
+                        self.log(f"Ignorando leitura do arquivo histórico {arquivo}: {e}")
 
         if not lista_dfs:
             raise Exception("Nenhum arquivo processado para ser consolidado.")
